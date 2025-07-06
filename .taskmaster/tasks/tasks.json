@@ -1,0 +1,563 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Database Schema & Models Setup",
+        "description": "Create core database schema and models for users, sessions, roles, and audit logging",
+        "details": "Set up PostgreSQL database with user table (id, email, password_hash, created_at, updated_at, status), session table (id, user_id, token, expires_at, created_at, ip_address), role table (id, name, permissions), and audit_log table (id, user_id, action, timestamp, ip_address, details). Use encrypted fields for sensitive data, implement proper indexing for performance, and set up database connection pooling. Include migration scripts for schema versioning.",
+        "testStrategy": "Unit tests for model validation, integration tests for database connections, migration testing for schema changes, and performance testing for query optimization",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Database Configuration and Connection Pooling Setup",
+            "description": "Configure database connection with proper pooling, SSL settings, and environment-specific configurations",
+            "dependencies": [],
+            "details": "Set up database connection configuration with connection pooling, SSL certificates, timeout settings, and environment variables. Configure connection pool size, max connections, and connection lifecycle management. Set up database URL configuration and connection string management.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Users Table Creation and Schema",
+            "description": "Create users table with proper schema, constraints, and security features",
+            "dependencies": [
+              1
+            ],
+            "details": "Create users table with fields: id (UUID primary key), email (unique, encrypted), password_hash (bcrypt), first_name, last_name, created_at, updated_at, last_login, is_active, email_verified. Add indexes on email and created_at. Implement email encryption at rest and proper password hashing constraints.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Sessions Table Creation and Management",
+            "description": "Create sessions table for user authentication state management",
+            "dependencies": [
+              2
+            ],
+            "details": "Create sessions table with fields: id (UUID primary key), user_id (foreign key to users), session_token (encrypted), expires_at, created_at, ip_address, user_agent, is_active. Add indexes on session_token, user_id, and expires_at. Implement automatic session cleanup and token encryption.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Roles Table and User-Role Associations",
+            "description": "Create roles table and user-role junction table for permissions system",
+            "dependencies": [
+              2
+            ],
+            "details": "Create roles table with fields: id (UUID primary key), name (unique), description, permissions (JSON/array), created_at, updated_at. Create user_roles junction table with user_id, role_id, assigned_at, assigned_by fields. Add appropriate indexes and foreign key constraints.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Audit Log Table for Security Tracking",
+            "description": "Create audit_log table for tracking all security-related events and changes",
+            "dependencies": [
+              2
+            ],
+            "details": "Create audit_log table with fields: id (UUID primary key), user_id (foreign key), action_type, resource_type, resource_id, old_values (JSON), new_values (JSON), ip_address, user_agent, timestamp, success_status. Add indexes on user_id, action_type, timestamp, and resource_type for efficient querying.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Database Migration System Setup",
+            "description": "Implement migration system for schema versioning and database updates",
+            "dependencies": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "details": "Set up database migration system with version tracking, rollback capabilities, and environment-specific migrations. Create migrations table to track applied migrations. Implement migration runner with proper transaction handling, error recovery, and logging. Create initial migration files for all tables created in previous subtasks.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "JWT Token System Implementation",
+        "description": "Implement JWT token generation, validation, and refresh mechanisms",
+        "details": "Create JWT utility functions for token generation with user payload (id, email, roles), token validation with signature verification, and refresh token mechanism. Implement token blacklisting for logout functionality. Use RS256 algorithm for signing, set appropriate expiration times (15 minutes for access tokens, 7 days for refresh tokens), and include token metadata (issued_at, expires_at, issuer).",
+        "testStrategy": "Unit tests for token generation/validation, integration tests for token refresh flow, security tests for token tampering attempts, and performance tests for token validation speed",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "in-progress",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement JWT token generation utilities",
+            "description": "Create utility functions for generating JWT tokens with proper payload structure and claims",
+            "dependencies": [],
+            "details": "Develop functions to create JWT tokens with user payload, expiration times, and custom claims. Include proper error handling and validation of input parameters.",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Implement JWT token validation functions",
+            "description": "Create functions to validate and decode JWT tokens with proper error handling",
+            "dependencies": [
+              1
+            ],
+            "details": "Build validation functions that verify token signatures, check expiration, and extract payload data. Include comprehensive error handling for malformed, expired, or invalid tokens.",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Implement refresh token mechanism",
+            "description": "Create refresh token system for secure token renewal without requiring re-authentication",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Develop refresh token generation, validation, and rotation system. Include secure storage considerations and proper token lifecycle management.",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Implement token blacklisting system",
+            "description": "Create system to blacklist revoked tokens and prevent their future use",
+            "dependencies": [
+              2
+            ],
+            "details": "Build token blacklist storage and validation mechanism. Include cleanup procedures for expired blacklisted tokens and efficient lookup operations.",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Configure RS256 signing for JWT tokens",
+            "description": "Set up RSA public/private key pair and configure RS256 signing algorithm for JWT tokens",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Generate RSA key pairs, configure secure key storage, and implement RS256 signing and verification. Include key rotation considerations and proper key management practices.",
+            "status": "done",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Password Security System",
+        "description": "Implement secure password hashing, validation, and storage using bcrypt",
+        "details": "Implement password hashing using bcrypt with salt rounds of 12, password strength validation (minimum 8 characters, uppercase, lowercase, number, special character), and secure password comparison. Include password history tracking to prevent reuse of last 5 passwords. Create utilities for password generation and validation feedback.",
+        "testStrategy": "Unit tests for password hashing/validation, security tests for timing attacks, load tests for hashing performance, and compliance tests for password strength requirements",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement bcrypt hashing for password security",
+            "description": "Set up bcrypt library integration with proper salt rounds and implement secure password hashing functionality",
+            "dependencies": [],
+            "details": "Install and configure bcrypt library, implement hash generation with appropriate salt rounds (minimum 12), handle async operations properly, and include error handling for hashing failures",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Create password strength validation rules",
+            "description": "Implement comprehensive password validation with configurable strength requirements",
+            "dependencies": [],
+            "details": "Define validation rules for minimum length, character complexity, common password detection, and implement configurable validation parameters with clear error messages",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Build password history tracking system",
+            "description": "Implement system to track and prevent password reuse with configurable history depth",
+            "dependencies": [
+              1
+            ],
+            "details": "Create database schema for password history, implement storage of hashed previous passwords, add configurable history limits, and ensure proper cleanup of old entries",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Develop secure password comparison utilities",
+            "description": "Create timing-safe password comparison functions and authentication utilities",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement constant-time password comparison using bcrypt.compare, create authentication helper functions, add rate limiting considerations, and ensure protection against timing attacks",
+            "status": "done",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Core Authentication API Endpoints",
+        "description": "Create RESTful authentication endpoints for login, logout, and registration",
+        "details": "Implement POST /auth/register (email, password validation, user creation), POST /auth/login (credential validation, JWT generation), POST /auth/logout (token blacklisting), POST /auth/refresh (refresh token validation, new token generation), and GET /auth/me (current user info). Include proper HTTP status codes, error handling, and request/response validation using middleware.",
+        "testStrategy": "Unit tests for each endpoint, integration tests for authentication flows, API contract tests, and security tests for authentication bypass attempts",
+        "priority": "high",
+        "dependencies": [
+          1,
+          2,
+          3
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement user registration endpoint with validation",
+            "description": "Create POST /auth/register endpoint with input validation, password hashing, and user creation",
+            "dependencies": [],
+            "details": "Implement registration endpoint that validates email format, password strength, checks for existing users, hashes passwords with bcrypt, and creates new user records. Return appropriate success/error responses with proper HTTP status codes.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Implement login endpoint with credential checking",
+            "description": "Create POST /auth/login endpoint that validates credentials and returns JWT tokens",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement login endpoint that validates user credentials, compares hashed passwords, generates JWT access and refresh tokens, and returns authentication response with proper HTTP status codes and security headers.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Implement logout endpoint with token blacklisting",
+            "description": "Create POST /auth/logout endpoint that invalidates user tokens",
+            "dependencies": [
+              2
+            ],
+            "details": "Implement logout endpoint that blacklists the provided JWT token, clears any session data, and returns appropriate success response. Include token validation middleware to ensure only authenticated users can logout.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Implement refresh endpoint with token validation",
+            "description": "Create POST /auth/refresh endpoint that validates refresh tokens and issues new access tokens",
+            "dependencies": [
+              2
+            ],
+            "details": "Implement refresh endpoint that validates refresh tokens, checks token expiration and blacklist status, generates new access tokens, and returns updated authentication response with proper security measures.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Implement user info endpoint",
+            "description": "Create GET /auth/me endpoint that returns authenticated user information",
+            "dependencies": [
+              2
+            ],
+            "details": "Implement protected user info endpoint that validates JWT tokens, retrieves user data from database, and returns user profile information excluding sensitive fields like password hashes.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Implement comprehensive error handling middleware",
+            "description": "Create centralized error handling middleware for all authentication endpoints",
+            "dependencies": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "details": "Implement error handling middleware that catches and processes authentication errors, validation errors, database errors, and JWT errors. Return consistent error responses with appropriate HTTP status codes, error messages, and logging for debugging.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Rate Limiting & CSRF Protection",
+        "description": "Implement rate limiting for authentication attempts and CSRF protection",
+        "details": "Implement rate limiting using Redis with sliding window algorithm (5 login attempts per 15 minutes per IP, 10 registration attempts per hour). Add CSRF protection using double-submit cookies pattern with secure, httpOnly flags. Include IP-based and user-based rate limiting with exponential backoff for repeated violations.",
+        "testStrategy": "Load tests for rate limiting thresholds, security tests for CSRF attack prevention, integration tests for Redis connectivity, and functional tests for legitimate user flows",
+        "priority": "high",
+        "dependencies": [
+          4
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Redis-based rate limiting implementation",
+            "description": "Implement Redis-backed rate limiting system with configurable limits and time windows",
+            "dependencies": [],
+            "details": "Create Redis client connection, implement sliding window rate limiting algorithm, configure rate limits per endpoint/user, handle Redis connection failures gracefully",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "CSRF protection with double-submit cookies",
+            "description": "Implement CSRF protection using double-submit cookie pattern for secure form submissions",
+            "dependencies": [],
+            "details": "Generate secure CSRF tokens, implement double-submit cookie mechanism, validate tokens on form submissions, handle token expiration and refresh",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "IP-based rate limiting with exponential backoff",
+            "description": "Implement IP-based rate limiting with exponential backoff for progressive penalty enforcement",
+            "dependencies": [
+              1
+            ],
+            "details": "Track IP request counts, implement exponential backoff algorithm, configure penalty durations, integrate with Redis rate limiting infrastructure",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Integration middleware for both protection mechanisms",
+            "description": "Create unified middleware that integrates rate limiting and CSRF protection for seamless application security",
+            "dependencies": [
+              2,
+              3
+            ],
+            "details": "Combine rate limiting and CSRF middleware, implement proper error handling and response codes, add configuration options, ensure proper logging and monitoring",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Input Validation & Sanitization",
+        "description": "Implement comprehensive input validation and sanitization for all user inputs",
+        "details": "Create validation middleware using Joi or similar library for email format, password strength, and all user inputs. Implement sanitization for XSS prevention, SQL injection protection through parameterized queries, and input length limits. Include custom validators for business rules and localized error messages.",
+        "testStrategy": "Unit tests for validation rules, security tests for injection attacks, integration tests for validation middleware, and edge case testing for boundary conditions",
+        "priority": "high",
+        "dependencies": [
+          4
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Setup Joi validation middleware",
+            "description": "Install and configure Joi validation library with Express middleware integration",
+            "dependencies": [],
+            "details": "Install joi package, create validation middleware wrapper, setup error handling for validation failures, and integrate with Express router",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Implement XSS prevention sanitization",
+            "description": "Add input sanitization to prevent cross-site scripting attacks",
+            "dependencies": [
+              1
+            ],
+            "details": "Install xss or similar sanitization library, create sanitization middleware, apply to all user input fields, and test with common XSS attack vectors",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Add SQL injection protection",
+            "description": "Implement parameterized queries and input validation to prevent SQL injection",
+            "dependencies": [
+              1
+            ],
+            "details": "Review database queries for injection vulnerabilities, implement parameterized queries, add input validation for database operations, and test with SQL injection attack patterns",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Create custom business rule validators with localized errors",
+            "description": "Build custom validation rules specific to business logic with multi-language error messages",
+            "dependencies": [
+              1,
+              2,
+              3
+            ],
+            "details": "Define custom Joi validators for business rules, implement i18n error message system, create localized error message files, and integrate with validation middleware",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Session Management & Security",
+        "description": "Implement secure session handling with Redis storage and proper expiration",
+        "details": "Set up Redis for session storage with automatic expiration, implement secure session cookies (httpOnly, secure, sameSite), and session fingerprinting using user-agent and IP address. Include session cleanup procedures, concurrent session limits (max 5 per user), and suspicious activity detection for session hijacking attempts.",
+        "testStrategy": "Integration tests for Redis session storage, security tests for session hijacking prevention, performance tests for session lookup speed, and functional tests for session expiration",
+        "priority": "medium",
+        "dependencies": [
+          2,
+          5
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Redis session storage setup",
+            "description": "Configure Redis connection and session storage backend with connection pooling and error handling",
+            "dependencies": [],
+            "details": "Set up Redis client connection with proper configuration for session storage. Include connection pooling, retry logic, and error handling. Configure Redis session store with appropriate key naming conventions and TTL settings.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Secure cookie configuration",
+            "description": "Implement secure cookie settings with proper flags and encryption for session management",
+            "dependencies": [
+              1
+            ],
+            "details": "Configure session cookies with secure flags (httpOnly, secure, sameSite). Implement cookie encryption/signing mechanisms. Set appropriate cookie expiration and domain settings based on security requirements.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Session fingerprinting implementation",
+            "description": "Create session fingerprinting mechanism using user agent, IP address, and browser characteristics",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Implement session fingerprinting to detect session hijacking attempts. Generate unique fingerprints based on user agent, IP address, and other browser characteristics. Store fingerprints in Redis and validate on each request.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Session cleanup procedures",
+            "description": "Implement automated session cleanup for expired and invalid sessions",
+            "dependencies": [
+              1
+            ],
+            "details": "Create cleanup procedures to remove expired sessions from Redis. Implement background job or cron task for periodic cleanup. Handle cleanup of orphaned sessions and implement proper logging for cleanup activities.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Concurrent session management with suspicious activity detection",
+            "description": "Implement concurrent session limits and detection of suspicious login patterns",
+            "dependencies": [
+              1,
+              2,
+              3
+            ],
+            "details": "Implement concurrent session management to limit active sessions per user. Create suspicious activity detection for unusual login patterns, multiple concurrent sessions, and geographic anomalies. Implement session invalidation and user notification mechanisms for suspicious activities.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Password Recovery System",
+        "description": "Implement secure password reset functionality with email verification",
+        "details": "Create password reset flow with secure token generation (crypto.randomBytes), email service integration (SendGrid/AWS SES), and time-limited reset links (1 hour expiration). Implement reset token validation, password update with history checking, and notification emails for successful changes. Include rate limiting for reset requests.",
+        "testStrategy": "Integration tests for email delivery, security tests for token validation, functional tests for complete reset flow, and edge case testing for expired tokens",
+        "priority": "medium",
+        "dependencies": [
+          3,
+          6
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement secure token generation for reset links",
+            "description": "Create cryptographically secure token generation system for password reset functionality",
+            "dependencies": [],
+            "details": "Generate secure random tokens with appropriate length and entropy, implement token storage with expiration timestamps, ensure tokens are single-use and time-limited",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Integrate email service with password reset templates",
+            "description": "Set up email service integration and create password reset email templates",
+            "dependencies": [],
+            "details": "Configure email service provider (SMTP/API), create HTML and text email templates for password reset, implement email sending functionality with proper error handling",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Implement token validation and password update flow",
+            "description": "Create secure token validation system and password update process",
+            "dependencies": [
+              1
+            ],
+            "details": "Validate reset tokens for authenticity and expiration, implement secure password update mechanism with proper hashing, handle token invalidation after use",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Add rate limiting for password reset requests",
+            "description": "Implement rate limiting to prevent abuse of password reset functionality",
+            "dependencies": [],
+            "details": "Add request rate limiting per IP address and per user account, implement cooldown periods between reset attempts, add monitoring and logging for suspicious activity",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "OAuth Social Login Integration",
+        "description": "Implement OAuth 2.0 integration with Google and GitHub providers",
+        "details": "Implement OAuth 2.0 authorization code flow for Google and GitHub using Passport.js or similar library. Create provider-specific strategies, handle callback URLs, and implement account linking for existing users. Include profile data mapping, error handling for provider failures, and fallback mechanisms for service outages.",
+        "testStrategy": "Integration tests with OAuth providers, unit tests for account linking logic, security tests for callback validation, and functional tests for complete OAuth flows",
+        "priority": "medium",
+        "dependencies": [
+          4,
+          7
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Role-Based Access Control (RBAC)",
+        "description": "Implement role and permission management system with middleware",
+        "details": "Create role and permission models with hierarchical relationships, implement authorization middleware for route protection, and create admin interfaces for role management. Include default roles (admin, user, guest), permission inheritance, and resource-based permissions. Create utilities for role checking and permission validation.",
+        "testStrategy": "Unit tests for permission logic, integration tests for role assignment, security tests for privilege escalation prevention, and functional tests for admin role management",
+        "priority": "medium",
+        "dependencies": [
+          1,
+          4
+        ],
+        "status": "pending",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-07-05T08:58:15.070Z",
+      "updated": "2025-07-05T11:28:18.644Z",
+      "description": "Tasks for master context"
+    }
+  }
+}

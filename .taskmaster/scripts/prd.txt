@@ -1,0 +1,324 @@
+<context>
+# Overview  
+The add-auth application is a comprehensive authentication system integration project that demonstrates how to implement secure user authentication, authorization, and session management in modern web applications. This project serves as both a reference implementation and a development toolkit for engineers who need to add robust authentication capabilities to their applications. The system prioritizes security best practices, developer experience, and scalability while providing clear patterns for integration with various authentication providers and frameworks.
+
+# Core Features  
+## Multi-Provider Authentication Support
+- OAuth 2.0 integration with major providers (Google, GitHub, Facebook, Microsoft)
+- Local username/password authentication with secure password hashing
+- Social login with seamless account linking capabilities
+- JWT token-based authentication for stateless sessions
+- Session management with configurable expiration and refresh tokens
+
+## Security & Compliance
+- Password strength validation and secure storage using bcrypt
+- Rate limiting for authentication attempts to prevent brute force attacks
+- CSRF protection for all authentication endpoints
+- Secure session management with HTTP-only cookies
+- Input validation and sanitization for all user inputs
+- Audit logging for authentication events
+
+## User Management
+- User registration with email verification
+- Password reset functionality with secure token generation
+- User profile management and account settings
+- Role-based access control (RBAC) system
+- Multi-factor authentication (MFA) support
+- Account lockout protection and recovery mechanisms
+
+## Developer Experience
+- Comprehensive API documentation with interactive examples
+- SDK/client libraries for popular frameworks (React, Vue, Angular)
+- Clear integration guides and best practices
+- Development tools for testing authentication flows
+- Debugging utilities and logging mechanisms
+
+# User Experience  
+## User Personas
+### End Users
+- Web application users seeking secure and convenient authentication
+- Mobile app users requiring seamless cross-platform authentication
+- Enterprise users needing SSO integration with existing systems
+
+### Developers
+- Frontend developers integrating authentication into client applications
+- Backend developers implementing secure authentication APIs
+- DevOps engineers deploying and maintaining authentication infrastructure
+
+## Key User Flows
+### Registration Flow
+1. User accesses registration page
+2. Chooses between social login or email/password registration
+3. Completes required profile information
+4. Receives email verification (if email registration)
+5. Verifies email and gains access to protected resources
+
+### Login Flow
+1. User accesses login page
+2. Selects authentication method (social, email/password, or MFA)
+3. Completes authentication challenge
+4. Receives secure session tokens
+5. Redirected to intended destination or dashboard
+
+### Password Recovery Flow
+1. User initiates password reset from login page
+2. Enters email address for account recovery
+3. Receives secure reset token via email
+4. Creates new password meeting security requirements
+5. Confirms successful password update
+
+## UI/UX Considerations
+- Clean, accessible authentication forms following WCAG guidelines
+- Responsive design supporting desktop and mobile devices
+- Clear error messaging and validation feedback
+- Progressive enhancement for JavaScript-disabled environments
+- Consistent branding and customization options
+</context>
+<PRD>
+# Technical Architecture  
+## System Components
+### Authentication Service
+- Core authentication logic and user management
+- JWT token generation and validation
+- Session management and token refresh mechanisms
+- Password hashing and validation utilities
+
+### API Gateway
+- Request routing and load balancing
+- Rate limiting and throttling
+- API versioning and backward compatibility
+- Health checks and monitoring endpoints
+
+### Database Layer
+- User account storage with encrypted sensitive data
+- Session and token management tables
+- Audit logging and security event tracking
+- Database migrations and schema management
+
+### Integration Layer
+- OAuth provider connectors (Google, GitHub, etc.)
+- Email service integration for verification and notifications
+- MFA service integration (SMS, authenticator apps)
+- External identity provider connections (LDAP, Active Directory)
+
+## Data Models
+### User Model
+- Unique identifier and basic profile information
+- Authentication credentials (encrypted passwords, provider IDs)
+- Account status and security settings
+- Timestamps for account creation and last activity
+
+### Session Model
+- Session tokens and expiration timestamps
+- Device and browser fingerprinting data
+- IP address and geolocation information
+- Activity logging and security events
+
+### Role and Permission Models
+- Role definitions with hierarchical relationships
+- Permission sets and access control rules
+- User-role assignments with time-based restrictions
+- Resource-based permissions for fine-grained control
+
+## APIs and Integrations
+### Authentication APIs
+- RESTful authentication endpoints (login, logout, register)
+- GraphQL authentication mutations and queries
+- WebSocket real-time authentication status updates
+- Webhook endpoints for external system notifications
+
+### OAuth Integration
+- Authorization code flow implementation
+- Token exchange and refresh mechanisms
+- Provider-specific customizations and configurations
+- Callback URL handling and security validation
+
+## Infrastructure Requirements
+### Production Environment
+- Load-balanced application servers with auto-scaling
+- Redis or similar for session storage and caching
+- PostgreSQL or equivalent for persistent data storage
+- CDN for static assets and global availability
+
+### Security Requirements
+- SSL/TLS encryption for all communications
+- Regular security updates and vulnerability scanning
+- Backup and disaster recovery procedures
+- Compliance with GDPR, CCPA, and other privacy regulations
+
+# Development Roadmap  
+## Phase 1: Core Authentication MVP
+### Basic Authentication System
+- User registration with email/password
+- Login and logout functionality
+- Password reset via email
+- Basic user profile management
+- JWT token generation and validation
+
+### Security Foundations
+- Password hashing with bcrypt
+- Basic rate limiting on authentication endpoints
+- CSRF protection implementation
+- Input validation and sanitization
+- Secure session management
+
+### Database Setup
+- User account storage schema
+- Session management tables
+- Basic audit logging
+- Database connection pooling
+- Migration system setup
+
+## Phase 2: Enhanced Security & User Experience
+### Multi-Factor Authentication
+- SMS-based 2FA implementation
+- Authenticator app integration (TOTP)
+- Backup codes generation and management
+- MFA enrollment and recovery flows
+
+### Advanced Security Features
+- Account lockout protection
+- Suspicious activity detection
+- IP-based access controls
+- Device fingerprinting
+- Security event logging and alerting
+
+### User Experience Improvements
+- Social login integration (Google, GitHub)
+- Remember me functionality
+- Progressive web app support
+- Accessibility improvements
+- Mobile-responsive design
+
+## Phase 3: Enterprise Features & Scalability
+### Role-Based Access Control
+- Role and permission management system
+- User group functionality
+- Resource-based permissions
+- Administrative dashboard for user management
+
+### Enterprise Integration
+- LDAP/Active Directory integration
+- SAML 2.0 support
+- Single Sign-On (SSO) capabilities
+- API key management system
+- Webhooks for external system integration
+
+### Performance & Monitoring
+- Application performance monitoring
+- Security event dashboards
+- User analytics and reporting
+- Load testing and optimization
+- Horizontal scaling implementation
+
+## Phase 4: Advanced Features & Developer Tools
+### Developer Experience
+- SDK development for popular frameworks
+- Interactive API documentation
+- Code examples and integration guides
+- Testing utilities and mock services
+- CLI tools for development and deployment
+
+### Advanced Authentication Features
+- Biometric authentication support
+- Passwordless authentication options
+- Risk-based authentication
+- Adaptive authentication policies
+- Advanced fraud detection
+
+# Logical Dependency Chain
+## Foundation Layer (Must be built first)
+1. **Database Schema & Models** - Core data structures for users, sessions, and security
+2. **Basic Authentication API** - Login/logout/register endpoints
+3. **JWT Token System** - Token generation, validation, and refresh mechanisms
+4. **Password Security** - Secure hashing, validation, and storage
+
+## Security Layer (Built on foundation)
+1. **Rate Limiting** - Prevent brute force attacks
+2. **CSRF Protection** - Secure form submissions
+3. **Input Validation** - Sanitize and validate all user inputs
+4. **Session Management** - Secure session handling and expiration
+
+## User Experience Layer (Built on security)
+1. **Registration Flow** - User-friendly account creation
+2. **Login Interface** - Intuitive authentication forms
+3. **Password Recovery** - Self-service password reset
+4. **Profile Management** - User account settings and preferences
+
+## Integration Layer (Built on core functionality)
+1. **OAuth Providers** - Social login integration
+2. **Email Services** - Verification and notification systems
+3. **MFA Implementation** - Two-factor authentication
+4. **External Identity Providers** - LDAP, AD integration
+
+## Advanced Features (Built on all previous layers)
+1. **RBAC System** - Role and permission management
+2. **Enterprise Features** - SSO, SAML, advanced security
+3. **Monitoring & Analytics** - Security dashboards and reporting
+4. **Developer Tools** - SDKs, documentation, and testing utilities
+
+# Risks and Mitigations  
+## Technical Challenges
+### Security Vulnerabilities
+- **Risk**: Authentication bypass or token manipulation
+- **Mitigation**: Comprehensive security testing, regular penetration testing, and security code reviews
+
+### Performance Bottlenecks
+- **Risk**: High authentication load causing system degradation
+- **Mitigation**: Implement caching strategies, database optimization, and horizontal scaling
+
+### Integration Complexity
+- **Risk**: OAuth provider changes breaking authentication flows
+- **Mitigation**: Implement robust error handling, fallback mechanisms, and regular integration testing
+
+## MVP Scoping
+### Feature Creep
+- **Risk**: Over-engineering the initial release
+- **Mitigation**: Focus on core authentication flows first, implement advanced features in later phases
+
+### Time to Market
+- **Risk**: Delayed delivery due to complex security requirements
+- **Mitigation**: Prioritize essential security features, implement additional protections incrementally
+
+## Resource Constraints
+### Team Expertise
+- **Risk**: Insufficient security knowledge leading to vulnerabilities
+- **Mitigation**: Security training for development team, external security consultations, and peer reviews
+
+### Infrastructure Costs
+- **Risk**: High costs for security and compliance requirements
+- **Mitigation**: Gradual scaling approach, cost monitoring, and efficient resource utilization
+
+# Appendix  
+## Research Findings
+### Industry Standards
+- OAuth 2.0 and OpenID Connect for modern authentication
+- JWT tokens for stateless authentication
+- RBAC patterns for enterprise applications
+- OWASP security guidelines for authentication systems
+
+### Technology Choices
+- bcrypt for password hashing (industry standard)
+- Redis for session storage (performance and scalability)
+- PostgreSQL for persistent data (reliability and compliance)
+- Node.js/Express for API development (developer familiarity)
+
+## Technical Specifications
+### API Standards
+- RESTful API design following OpenAPI 3.0 specification
+- JSON Web Token (JWT) format for authentication tokens
+- HTTP status codes and error response formats
+- API versioning strategy and backward compatibility
+
+### Database Schema
+- User table with encrypted sensitive fields
+- Session table with automatic cleanup procedures
+- Audit log table with retention policies
+- Index optimization for performance
+
+### Security Requirements
+- TLS 1.3 for all communications
+- AES-256 encryption for sensitive data at rest
+- PBKDF2 or Argon2 for password hashing
+- Regular security audits and vulnerability assessments
+</PRD>

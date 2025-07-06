@@ -1,0 +1,93 @@
+{
+	"meta": {
+		"generatedAt": "2025-07-05T08:58:48.584Z",
+		"tasksAnalyzed": 10,
+		"totalTasks": 10,
+		"analysisCount": 10,
+		"thresholdScore": 5,
+		"projectName": "Taskmaster",
+		"usedResearch": true
+	},
+	"complexityAnalysis": [
+		{
+			"taskId": 1,
+			"taskTitle": "Database Schema & Models Setup",
+			"complexityScore": 8,
+			"recommendedSubtasks": 6,
+			"expansionPrompt": "Break down database setup into separate subtasks for each table creation (users, sessions, roles, audit_log), database configuration/connection pooling, and migration system setup. Each table should be its own subtask with specific schema requirements, indexes, and constraints.",
+			"reasoning": "High complexity due to multiple interdependent tables, security requirements for encryption, performance considerations for indexing, and migration system setup. Requires careful planning of relationships and constraints."
+		},
+		{
+			"taskId": 2,
+			"taskTitle": "JWT Token System Implementation",
+			"complexityScore": 7,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Divide JWT implementation into token generation utilities, token validation functions, refresh token mechanism, token blacklisting system, and RS256 signing configuration. Each subtask should focus on a specific aspect of JWT handling.",
+			"reasoning": "Moderate-high complexity involving cryptographic operations, token lifecycle management, and security considerations. Multiple interconnected components requiring careful implementation."
+		},
+		{
+			"taskId": 3,
+			"taskTitle": "Password Security System",
+			"complexityScore": 6,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Split password security into bcrypt hashing implementation, password strength validation rules, password history tracking system, and secure password comparison utilities. Focus on security best practices for each component.",
+			"reasoning": "Moderate complexity with critical security implications. Involves cryptographic hashing, validation logic, and historical data tracking with clear separation of concerns."
+		},
+		{
+			"taskId": 4,
+			"taskTitle": "Core Authentication API Endpoints",
+			"complexityScore": 8,
+			"recommendedSubtasks": 6,
+			"expansionPrompt": "Create separate subtasks for each endpoint: register endpoint with validation, login endpoint with credential checking, logout endpoint with token blacklisting, refresh endpoint with token validation, user info endpoint, and comprehensive error handling middleware.",
+			"reasoning": "High complexity due to multiple endpoints with different requirements, comprehensive error handling, proper HTTP status codes, and integration with other authentication components."
+		},
+		{
+			"taskId": 5,
+			"taskTitle": "Rate Limiting & CSRF Protection",
+			"complexityScore": 7,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Divide into Redis-based rate limiting implementation, CSRF protection with double-submit cookies, IP-based rate limiting with exponential backoff, and integration middleware for both protection mechanisms.",
+			"reasoning": "Moderate-high complexity requiring Redis integration, security mechanisms implementation, and performance considerations for rate limiting algorithms."
+		},
+		{
+			"taskId": 6,
+			"taskTitle": "Input Validation & Sanitization",
+			"complexityScore": 6,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Break down into validation middleware setup with Joi, XSS prevention sanitization, SQL injection protection implementation, and custom business rule validators with localized error messages.",
+			"reasoning": "Moderate complexity with security-critical components. Requires understanding of various attack vectors and implementation of comprehensive validation rules."
+		},
+		{
+			"taskId": 7,
+			"taskTitle": "Session Management & Security",
+			"complexityScore": 7,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Divide into Redis session storage setup, secure cookie configuration, session fingerprinting implementation, session cleanup procedures, and concurrent session management with suspicious activity detection.",
+			"reasoning": "Moderate-high complexity involving Redis integration, security considerations, and concurrent session handling with fraud detection capabilities."
+		},
+		{
+			"taskId": 8,
+			"taskTitle": "Password Recovery System",
+			"complexityScore": 6,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Split into secure token generation for reset links, email service integration with templates, token validation and password update flow, and rate limiting for reset requests.",
+			"reasoning": "Moderate complexity requiring external email service integration, secure token handling, and time-sensitive operations with proper validation."
+		},
+		{
+			"taskId": 9,
+			"taskTitle": "OAuth Social Login Integration",
+			"complexityScore": 8,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Break down into Passport.js OAuth strategy setup, Google OAuth integration, GitHub OAuth integration, account linking logic for existing users, and error handling for provider failures.",
+			"reasoning": "High complexity due to external service integration, multiple OAuth providers, account linking logic, and handling of various failure scenarios."
+		},
+		{
+			"taskId": 10,
+			"taskTitle": "Role-Based Access Control (RBAC)",
+			"complexityScore": 7,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Divide into role and permission model creation, authorization middleware implementation, hierarchical permission system, admin interface for role management, and resource-based permission utilities.",
+			"reasoning": "Moderate-high complexity involving hierarchical relationships, middleware implementation, and admin interfaces with comprehensive permission checking logic."
+		}
+	]
+}
