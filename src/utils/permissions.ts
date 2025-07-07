@@ -360,6 +360,8 @@ export class PermissionService {
         action: 'permission_check',
         resource_type: 'permission',
         resource_id: permission,
+        ip_address: context?.ip || 'unknown',
+        success: granted,
         details: {
           permission,
           granted,

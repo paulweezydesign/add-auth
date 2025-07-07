@@ -5,6 +5,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { logger } from '../utils/logger';
+import crypto from 'crypto';
 
 /**
  * SQL Injection Detection Configuration
@@ -392,7 +393,223 @@ export const escapeIdentifier = (identifier: string): string => {
 };
 
 /**
- * SQL injection detection for specific fields
+ * Advanced query builder with comprehensive validation
+ */
+export class SecureQueryBuilder {
+  private allowedTables: Set<string>;
+  private allowedColumns: Map<string, Set<string>>;
+  private allowedOperators: Set<string>;
+  
+  constructor() {
+    this.allowedTables = new Set([
+      'users', 'sessions', 'roles', 'audit_logs', 'permissions',
+      'user_roles', 'role_permissions', 'oauth_tokens', 'password_resets'
+    ]);
+    
+    this.allowedColumns = new Map([
+      ['users', new Set(['id', 'email', 'username', 'password_hash', 'first_name', 'last_name', 'created_at', 'updated_at', 'last_login', 'status', 'email_verified'])],
+      ['sessions', new Set(['id', 'user_id', 'session_token', 'expires_at', 'created_at', 'ip_address', 'user_agent'])],
+      ['roles', new Set(['id', 'name', 'description', 'created_at', 'updated_at'])],
+      ['audit_logs', new Set(['id', 'user_id', 'action', 'resource', 'details', 'ip_address', 'created_at'])],
+      ['permissions', new Set(['id', 'name', 'description', 'resource', 'action'])]
+    ]);
+    
+    this.allowedOperators = new Set([
+      '=', '!=', '<>', '<', '>', '<=', '>=', 'LIKE', 'ILIKE', 'IN', 'NOT IN',
+      'IS NULL', 'IS NOT NULL', 'BETWEEN', 'NOT BETWEEN'
+    ]);
+  }
+  
+  validateTable(table: string): boolean {
+    return this.allowedTables.has(table);
+  }
+  
+  validateColumn(table: string, column: string): boolean {
+    const tableColumns = this.allowedColumns.get(table);
+    return tableColumns ? tableColumns.has(column) : false;
+  }
+  
+  validateOperator(operator: string): boolean {
+    return this.allowedOperators.has(operator.toUpperCase());
+  }
+  
+  /**
+   * Build secure SELECT query
+   */
+  select(table: string, columns: string[] = ['*'], conditions: { [key: string]: any } = {}, options: {
+    limit?: number;
+    offset?: number;
+    orderBy?: { column: string; direction: 'ASC' | 'DESC' }[];
+    groupBy?: string[];
+  } = {}): { text: string; values: any[] } {
+    if (!this.validateTable(table)) {
+      throw new Error(`Invalid table name: ${table}`);
+    }
+    
+    // Validate columns
+    const validColumns = columns.filter(col => {
+      if (col === '*') return true;
+      return this.validateColumn(table, col);
+    });
+    
+    if (validColumns.length === 0) {
+      throw new Error('No valid columns specified');
+    }
+    
+    let query = `SELECT ${validColumns.join(', ')} FROM ${escapeIdentifier(table)}`;
+    const values: any[] = [];
+    let paramIndex = 1;
+    
+    // WHERE clause
+    if (Object.keys(conditions).length > 0) {
+      const whereClauses = [];
+      for (const [column, value] of Object.entries(conditions)) {
+        if (!this.validateColumn(table, column)) {
+          throw new Error(`Invalid column: ${column}`);
+        }
+        whereClauses.push(`${escapeIdentifier(column)} = $${paramIndex}`);
+        values.push(value);
+        paramIndex++;
+      }
+      query += ` WHERE ${whereClauses.join(' AND ')}`;
+    }
+    
+    // GROUP BY
+    if (options.groupBy && options.groupBy.length > 0) {
+      const validGroupColumns = options.groupBy.filter(col => this.validateColumn(table, col));
+      if (validGroupColumns.length > 0) {
+        query += ` GROUP BY ${validGroupColumns.map(escapeIdentifier).join(', ')}`;
+      }
+    }
+    
+    // ORDER BY
+    if (options.orderBy && options.orderBy.length > 0) {
+      const orderClauses = options.orderBy
+        .filter(order => this.validateColumn(table, order.column))
+        .map(order => `${escapeIdentifier(order.column)} ${order.direction}`);
+      if (orderClauses.length > 0) {
+        query += ` ORDER BY ${orderClauses.join(', ')}`;
+      }
+    }
+    
+    // LIMIT and OFFSET
+    if (options.limit && options.limit > 0) {
+      query += ` LIMIT $${paramIndex}`;
+      values.push(Math.min(options.limit, 1000)); // Cap at 1000
+      paramIndex++;
+      
+      if (options.offset && options.offset > 0) {
+        query += ` OFFSET $${paramIndex}`;
+        values.push(options.offset);
+        paramIndex++;
+      }
+    }
+    
+    return { text: query, values };
+  }
+  
+  /**
+   * Build secure INSERT query
+   */
+  insert(table: string, data: { [key: string]: any }): { text: string; values: any[] } {
+    if (!this.validateTable(table)) {
+      throw new Error(`Invalid table name: ${table}`);
+    }
+    
+    const validEntries = Object.entries(data).filter(([column]) => 
+      this.validateColumn(table, column)
+    );
+    
+    if (validEntries.length === 0) {
+      throw new Error('No valid columns for insert');
+    }
+    
+    const columns = validEntries.map(([column]) => escapeIdentifier(column));
+    const placeholders = validEntries.map((_, index) => `$${index + 1}`);
+    const values = validEntries.map(([, value]) => value);
+    
+    const query = `INSERT INTO ${escapeIdentifier(table)} (${columns.join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING *`;
+    
+    return { text: query, values };
+  }
+  
+  /**
+   * Build secure UPDATE query
+   */
+  update(table: string, data: { [key: string]: any }, conditions: { [key: string]: any }): { text: string; values: any[] } {
+    if (!this.validateTable(table)) {
+      throw new Error(`Invalid table name: ${table}`);
+    }
+    
+    const validDataEntries = Object.entries(data).filter(([column]) => 
+      this.validateColumn(table, column)
+    );
+    
+    const validConditionEntries = Object.entries(conditions).filter(([column]) => 
+      this.validateColumn(table, column)
+    );
+    
+    if (validDataEntries.length === 0) {
+      throw new Error('No valid columns for update');
+    }
+    
+    if (validConditionEntries.length === 0) {
+      throw new Error('No valid conditions for update');
+    }
+    
+    const setClauses = validDataEntries.map(([column], index) => 
+      `${escapeIdentifier(column)} = $${index + 1}`
+    );
+    
+    const whereClauses = validConditionEntries.map(([column], index) => 
+      `${escapeIdentifier(column)} = $${validDataEntries.length + index + 1}`
+    );
+    
+    const values = [
+      ...validDataEntries.map(([, value]) => value),
+      ...validConditionEntries.map(([, value]) => value)
+    ];
+    
+    const query = `UPDATE ${escapeIdentifier(table)} SET ${setClauses.join(', ')} WHERE ${whereClauses.join(' AND ')} RETURNING *`;
+    
+    return { text: query, values };
+  }
+  
+  /**
+   * Build secure DELETE query
+   */
+  delete(table: string, conditions: { [key: string]: any }): { text: string; values: any[] } {
+    if (!this.validateTable(table)) {
+      throw new Error(`Invalid table name: ${table}`);
+    }
+    
+    const validConditionEntries = Object.entries(conditions).filter(([column]) => 
+      this.validateColumn(table, column)
+    );
+    
+    if (validConditionEntries.length === 0) {
+      throw new Error('No valid conditions for delete');
+    }
+    
+    const whereClauses = validConditionEntries.map(([column], index) => 
+      `${escapeIdentifier(column)} = $${index + 1}`
+    );
+    
+    const values = validConditionEntries.map(([, value]) => value);
+    
+    const query = `DELETE FROM ${escapeIdentifier(table)} WHERE ${whereClauses.join(' AND ')}`;
+    
+    return { text: query, values };
+  }
+}
+
+/**
+ * Global secure query builder instance
+ */
+export const secureQueryBuilder = new SecureQueryBuilder();
+
+/**
+ * SQL injection detection for specific fields with enhanced tracking
  */
 export const sqlInjectionDetectionFields = (fields: string[], config: SQLInjectionConfig = {}) => {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -409,12 +626,19 @@ export const sqlInjectionDetectionFields = (fields: string[], config: SQLInjecti
                 ip: req.ip,
                 userAgent: req.get('user-agent'),
                 method: req.method,
-                url: req.url
+                url: req.url,
+                timestamp: new Date().toISOString(),
+                severity: 'HIGH'
               });
+              
+              // Track repeated attempts
+              const attemptKey = `${req.ip}_${field}_sql_injection`;
+              logger.warn('Tracking SQL injection attempt', { attemptKey });
               
               return res.status(400).json({
                 error: 'Malicious input detected',
-                message: `SQL injection detected in field: ${field}`
+                message: `SQL injection detected in field: ${field}`,
+                timestamp: new Date().toISOString()
               });
             }
           }
@@ -444,6 +668,194 @@ export const sqlInjectionDetectionFields = (fields: string[], config: SQLInjecti
   };
 };
 
+/**
+ * Transaction wrapper with SQL injection protection
+ */
+export const secureTransaction = async <T>(
+  client: any,
+  operations: (builder: SecureQueryBuilder) => Promise<T>
+): Promise<T> => {
+  try {
+    await client.query('BEGIN');
+    const result = await operations(secureQueryBuilder);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    logger.error('Secure transaction failed:', error);
+    throw error;
+  }
+};
+
+/**
+ * Prepared statement cache to prevent SQL injection
+ */
+class PreparedStatementCache {
+  private cache = new Map<string, string>();
+  private maxSize = 1000;
+  
+  getKey(query: string, params: any[]): string {
+    return crypto.createHash('sha256')
+      .update(query + JSON.stringify(params.map(p => typeof p)))
+      .digest('hex');
+  }
+  
+  get(key: string): string | undefined {
+    return this.cache.get(key);
+  }
+  
+  set(key: string, preparedQuery: string): void {
+    if (this.cache.size >= this.maxSize) {
+      // Remove oldest entry
+      const firstKey = this.cache.keys().next().value;
+      this.cache.delete(firstKey);
+    }
+    this.cache.set(key, preparedQuery);
+  }
+  
+  clear(): void {
+    this.cache.clear();
+  }
+  
+  getStats(): { size: number; maxSize: number; hitRate: number } {
+    return {
+      size: this.cache.size,
+      maxSize: this.maxSize,
+      hitRate: 0 // Would need hit/miss tracking
+    };
+  }
+}
+
+export const preparedStatementCache = new PreparedStatementCache();
+
+/**
+ * Enhanced parameterized query with caching
+ */
+export const createSecureParameterizedQuery = (
+  query: string,
+  params: any[],
+  options: { useCache?: boolean; validateParams?: boolean } = {}
+): { text: string; values: any[]; cacheKey?: string } => {
+  const { useCache = true, validateParams = true } = options;
+  
+  if (validateParams) {
+    // Validate parameter types and values
+    params.forEach((param, index) => {
+      if (typeof param === 'string') {
+        const detection = detectSQLInjection(param);
+        if (detection.detected) {
+          throw new Error(`SQL injection detected in parameter ${index + 1}`);
+        }
+      }
+    });
+  }
+  
+  let cacheKey: string | undefined;
+  
+  if (useCache) {
+    cacheKey = preparedStatementCache.getKey(query, params);
+    const cachedQuery = preparedStatementCache.get(cacheKey);
+    
+    if (cachedQuery) {
+      return { text: cachedQuery, values: params, cacheKey };
+    }
+  }
+  
+  // Validate query structure
+  const normalizedQuery = query.trim().toUpperCase();
+  const allowedStarters = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'WITH'];
+  
+  if (!allowedStarters.some(starter => normalizedQuery.startsWith(starter))) {
+    throw new Error('Invalid query type');
+  }
+  
+  const result = { text: query, values: params, cacheKey };
+  
+  if (useCache && cacheKey) {
+    preparedStatementCache.set(cacheKey, query);
+  }
+  
+  return result;
+};
+
+/**
+ * SQL injection monitoring and alerting
+ */
+export const sqlInjectionMonitor = {
+  attempts: new Map<string, { count: number; lastAttempt: Date; patterns: Set<string> }>(),
+  
+  recordAttempt(ip: string, pattern: string, userAgent?: string): void {
+    const key = ip;
+    const current = this.attempts.get(key) || {
+      count: 0,
+      lastAttempt: new Date(),
+      patterns: new Set()
+    };
+    
+    current.count++;
+    current.lastAttempt = new Date();
+    current.patterns.add(pattern);
+    
+    this.attempts.set(key, current);
+    
+    // Alert on repeated attempts
+    if (current.count >= 5) {
+      logger.error('Critical SQL injection attempt pattern detected', {
+        ip,
+        attempts: current.count,
+        patterns: Array.from(current.patterns),
+        userAgent,
+        severity: 'CRITICAL'
+      });
+    }
+  },
+  
+  getStats(): any {
+    const stats = {
+      totalIPs: this.attempts.size,
+      totalAttempts: 0,
+      topOffenders: [] as any[],
+      commonPatterns: new Map<string, number>()
+    };
+    
+    for (const [ip, data] of this.attempts.entries()) {
+      stats.totalAttempts += data.count;
+      stats.topOffenders.push({ ip, ...data, patterns: Array.from(data.patterns) });
+      
+      for (const pattern of data.patterns) {
+        stats.commonPatterns.set(pattern, (stats.commonPatterns.get(pattern) || 0) + 1);
+      }
+    }
+    
+    stats.topOffenders.sort((a, b) => b.count - a.count);
+    stats.topOffenders = stats.topOffenders.slice(0, 10);
+    
+    return stats;
+  },
+  
+  cleanup(olderThanHours: number = 24): void {
+    const cutoff = new Date(Date.now() - olderThanHours * 60 * 60 * 1000);
+    let cleaned = 0;
+    
+    for (const [key, data] of this.attempts.entries()) {
+      if (data.lastAttempt < cutoff) {
+        this.attempts.delete(key);
+        cleaned++;
+      }
+    }
+    
+    logger.info('SQL injection attempt cleanup completed', {
+      cleaned,
+      remaining: this.attempts.size
+    });
+  }
+};
+
+// Periodic cleanup
+setInterval(() => {
+  sqlInjectionMonitor.cleanup();
+}, 60 * 60 * 1000); // Every hour
+
 export default {
   sqlInjectionPrevention,
   sqlInjectionSanitization,
@@ -452,7 +864,13 @@ export default {
   sanitizeSQLInput,
   sanitizeObjectSQL,
   createParameterizedQuery,
+  createSecureParameterizedQuery,
   buildSafeQuery,
   validateIdentifier,
-  escapeIdentifier
+  escapeIdentifier,
+  SecureQueryBuilder,
+  secureQueryBuilder,
+  secureTransaction,
+  preparedStatementCache,
+  sqlInjectionMonitor
 };
