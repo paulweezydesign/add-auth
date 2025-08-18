@@ -8,6 +8,13 @@ import Joi from 'joi';
 import { logger } from '../utils/logger';
 import { detectXSS } from './xssProtection';
 import { detectSQLInjection } from './sqlInjectionPrevention';
+import { 
+  detectLanguage, 
+  getLocalizedMessage, 
+  getLocalizedError, 
+  createValidationErrorResponse,
+  SupportedLanguage 
+} from './localization';
 
 /**
  * Validation target types
@@ -514,11 +521,14 @@ export const validate = (schema: Joi.ObjectSchema, options: ValidationOptions = 
 
   return async (req: Request, res: Response, next: NextFunction) => {
     const targetData = req[opts.target!];
+    const language = detectLanguage(req);
     
     if (!targetData) {
       return res.status(400).json({
         error: 'Validation failed',
-        message: `No ${opts.target} data found in request`
+        message: getLocalizedMessage('FIELD_REQUIRED', language),
+        language,
+        timestamp: new Date().toISOString()
       });
     }
 
@@ -534,9 +544,14 @@ export const validate = (schema: Joi.ObjectSchema, options: ValidationOptions = 
             userAgent: req.get('user-agent'),
             path: req.path
           });
+          const errorObj = getLocalizedError('XSS_ATTEMPT_DETECTED', language);
           return res.status(400).json({
             error: 'Security validation failed',
-            message: 'Malicious content detected in request'
+            message: errorObj.message,
+            code: errorObj.code,
+            severity: errorObj.severity,
+            language,
+            timestamp: new Date().toISOString()
           });
         }
       }
@@ -551,9 +566,14 @@ export const validate = (schema: Joi.ObjectSchema, options: ValidationOptions = 
             userAgent: req.get('user-agent'),
             path: req.path
           });
+          const errorObj = getLocalizedError('SQL_INJECTION_DETECTED', language);
           return res.status(400).json({
             error: 'Security validation failed',
-            message: 'Malicious content detected in request'
+            message: errorObj.message,
+            code: errorObj.code,
+            severity: errorObj.severity,
+            language,
+            timestamp: new Date().toISOString()
           });
         }
       }
@@ -566,11 +586,71 @@ export const validate = (schema: Joi.ObjectSchema, options: ValidationOptions = 
       });
 
       if (error) {
-        const validationErrors = error.details.map(detail => ({
-          field: detail.path.join('.'),
-          message: detail.message,
-          value: detail.context?.value
-        }));
+        const validationErrors = error.details.map(detail => {
+          const field = detail.path.join('.');
+          let errorCode = 'FIELD_REQUIRED';
+          let params: Record<string, any> = {};
+          
+          // Map Joi error types to localized error codes
+          switch (detail.type) {
+            case 'any.required':
+              errorCode = 'FIELD_REQUIRED';
+              break;
+            case 'string.email':
+              errorCode = 'EMAIL_INVALID';
+              break;
+            case 'string.min':
+              if (field === 'password') {
+                errorCode = 'PASSWORD_TOO_SHORT';
+                params = { minLength: detail.context?.limit || 8 };
+              }
+              break;
+            case 'string.pattern.base':
+              if (field === 'password') {
+                errorCode = 'PASSWORD_COMPLEXITY';
+              }
+              break;
+            case 'any.only':
+              if (field === 'confirmPassword') {
+                errorCode = 'PASSWORDS_NO_MATCH';
+              }
+              break;
+            // Business rule error mappings
+            case 'business.emailDomainNotAllowed':
+              errorCode = 'EMAIL_DOMAIN_NOT_ALLOWED';
+              params = detail.context || {};
+              break;
+            case 'business.passwordTooCommon':
+              errorCode = 'PASSWORD_COMMON';
+              break;
+            case 'business.usernameReserved':
+              errorCode = 'USERNAME_RESERVED';
+              break;
+            case 'business.profanityDetected':
+              errorCode = 'PROFANITY_DETECTED';
+              break;
+            case 'business.phoneNumberInvalid':
+              errorCode = 'PHONE_NUMBER_INVALID';
+              break;
+            case 'business.ageInvalid':
+              errorCode = 'AGE_INVALID';
+              params = detail.context || {};
+              break;
+            case 'business.dateRangeInvalid':
+              errorCode = 'DATE_RANGE_INVALID';
+              params = detail.context || {};
+              break;
+            default:
+              errorCode = 'FIELD_REQUIRED';
+          }
+          
+          return {
+            field,
+            code: errorCode,
+            message: getLocalizedMessage(errorCode, language, params),
+            value: detail.context?.value
+          };
+        });
 
         logger.warn('Validation failed', {
           target: opts.target,
@@ -580,11 +660,14 @@ export const validate = (schema: Joi.ObjectSchema, options: ValidationOptions = 
           path: req.path
         });
 
-        return res.status(400).json({
-          error: 'Validation failed',
-          message: 'Invalid input data',
-          details: validationErrors
-        });
+        return res.status(400).json(createValidationErrorResponse(
+          validationErrors.map(err => ({
+            field: err.field,
+            code: err.code,
+            params: err.field === 'password' ? { minLength: 8 } : undefined
+          })),
+          language
+        ));
       }
 
       // Custom validators
@@ -599,9 +682,28 @@ export const validate = (schema: Joi.ObjectSchema, options: ValidationOptions = 
                 ip: req.ip,
                 path: req.path
               });
+              
+              // Determine error code based on field and validator
+              let errorCode = 'FIELD_REQUIRED';
+              if (field === 'email' && validator === businessRuleValidators.allowedEmailDomain) {
+                errorCode = 'EMAIL_DOMAIN_NOT_ALLOWED';
+              } else if (field === 'password' && validator === businessRuleValidators.notCommonPassword) {
+                errorCode = 'PASSWORD_COMMON';
+              } else if (field === 'username' && validator === businessRuleValidators.notReservedUsername) {
+                errorCode = 'USERNAME_RESERVED';
+              } else if (validator === businessRuleValidators.noProfanity) {
+                errorCode = 'PROFANITY_DETECTED';
+              }
+              
+              const errorObj = getLocalizedError(errorCode, language);
               return res.status(400).json({
                 error: 'Validation failed',
-                message: typeof result === 'string' ? result : `Invalid ${field}`
+                message: errorObj.message,
+                code: errorObj.code,
+                severity: errorObj.severity,
+                field,
+                language,
+                timestamp: new Date().toISOString()
               });
             }
           }
@@ -615,7 +717,9 @@ export const validate = (schema: Joi.ObjectSchema, options: ValidationOptions = 
       logger.error('Validation middleware error:', validationError);
       return res.status(500).json({
         error: 'Internal server error',
-        message: 'Validation processing failed'
+        message: getLocalizedMessage('FIELD_REQUIRED', language),
+        language,
+        timestamp: new Date().toISOString()
       });
     }
   };
@@ -817,7 +921,7 @@ const performSQLInjectionDetection = async (data: any): Promise<{ detected: bool
 };
 
 /**
- * Advanced business rule validators
+ * Advanced business rule validators with localized error support
  */
 export const businessRuleValidators = {
   /**
@@ -904,6 +1008,421 @@ export const businessRuleValidators = {
 };
 
 /**
+ * Create localized business rule validator
+ */
+export const createLocalizedValidator = (
+  validatorFn: (value: any, ...args: any[]) => boolean,
+  errorCode: string,
+  ...args: any[]
+) => {
+  return (value: any) => {
+    const isValid = validatorFn(value, ...args);
+    if (!isValid) {
+      return { valid: false, errorCode, params: args.length > 0 ? { args } : {} };
+    }
+    return { valid: true };
+  };
+};
+
+/**
+ * Custom Joi validators for business rules
+ */
+export const createCustomJoiValidators = () => {
+  return {
+    /**
+     * Email domain validation
+     */
+    allowedEmailDomain: (allowedDomains: string[] = []) => {
+      return {
+        name: 'allowedEmailDomain',
+        validate: (value: string, helpers: any) => {
+          if (allowedDomains.length === 0) return value;
+          const domain = value.split('@')[1]?.toLowerCase();
+          if (!allowedDomains.includes(domain)) {
+            return helpers.error('business.emailDomainNotAllowed', { domain });
+          }
+          return value;
+        }
+      };
+    },
+
+    /**
+     * Common password validation
+     */
+    notCommonPassword: () => {
+      return {
+        name: 'notCommonPassword',
+        validate: (value: string, helpers: any) => {
+          if (!businessRuleValidators.notCommonPassword(value)) {
+            return helpers.error('business.passwordTooCommon');
+          }
+          return value;
+        }
+      };
+    },
+
+    /**
+     * Reserved username validation
+     */
+    notReservedUsername: () => {
+      return {
+        name: 'notReservedUsername',
+        validate: (value: string, helpers: any) => {
+          if (!businessRuleValidators.notReservedUsername(value)) {
+            return helpers.error('business.usernameReserved');
+          }
+          return value;
+        }
+      };
+    },
+
+    /**
+     * Profanity validation
+     */
+    noProfanity: () => {
+      return {
+        name: 'noProfanity',
+        validate: (value: string, helpers: any) => {
+          if (!businessRuleValidators.noProfanity(value)) {
+            return helpers.error('business.profanityDetected');
+          }
+          return value;
+        }
+      };
+    },
+
+    /**
+     * Phone number validation
+     */
+    validPhoneNumber: () => {
+      return {
+        name: 'validPhoneNumber',
+        validate: (value: string, helpers: any) => {
+          if (!businessRuleValidators.validPhoneNumber(value)) {
+            return helpers.error('business.phoneNumberInvalid');
+          }
+          return value;
+        }
+      };
+    },
+
+    /**
+     * Age validation
+     */
+    validAge: (minAge: number = 13, maxAge: number = 120) => {
+      return {
+        name: 'validAge',
+        validate: (value: string, helpers: any) => {
+          if (!businessRuleValidators.validAge(value, minAge, maxAge)) {
+            return helpers.error('business.ageInvalid', { minAge, maxAge });
+          }
+          return value;
+        }
+      };
+    },
+
+    /**
+     * Date range validation
+     */
+    validDateRange: (minDate?: Date, maxDate?: Date) => {
+      return {
+        name: 'validDateRange',
+        validate: (value: string, helpers: any) => {
+          if (!businessRuleValidators.validDateRange(value, minDate, maxDate)) {
+            return helpers.error('business.dateRangeInvalid', { minDate, maxDate });
+          }
+          return value;
+        }
+      };
+    }
+  };
+};
+
+/**
+ * Create extended Joi instance with custom validators and localized error messages
+ */
+export const createExtendedJoi = (language: SupportedLanguage = 'en') => {
+  const customValidators = createCustomJoiValidators();
+  
+  // Extend Joi with custom validators
+  const extendedJoi = Joi.extend(
+    ...Object.values(customValidators).map(validator => (joi: any) => ({
+      type: 'string',
+      base: joi.string(),
+      messages: {
+        'business.emailDomainNotAllowed': getLocalizedMessage('EMAIL_DOMAIN_NOT_ALLOWED', language),
+        'business.passwordTooCommon': getLocalizedMessage('PASSWORD_COMMON', language),
+        'business.usernameReserved': getLocalizedMessage('USERNAME_RESERVED', language),
+        'business.profanityDetected': getLocalizedMessage('PROFANITY_DETECTED', language),
+        'business.phoneNumberInvalid': getLocalizedMessage('PHONE_NUMBER_INVALID', language),
+        'business.ageInvalid': getLocalizedMessage('AGE_INVALID', language),
+        'business.dateRangeInvalid': getLocalizedMessage('DATE_RANGE_INVALID', language)
+      },
+      rules: {
+        [validator().name]: validator()
+      }
+    }))
+  );
+
+  return extendedJoi;
+};
+
+/**
+ * Enhanced validation schemas with business rules
+ */
+export const enhancedValidationSchemas = {
+  // Enhanced user registration with business rules
+  userRegistrationWithBusinessRules: (options: {
+    allowedEmailDomains?: string[];
+    requireUniqueUsername?: boolean;
+    minAge?: number;
+    maxAge?: number;
+  } = {}) => {
+    const { allowedEmailDomains = [], minAge = 13, maxAge = 120 } = options;
+    
+    return Joi.object({
+      username: Joi.string()
+        .alphanum()
+        .min(3)
+        .max(30)
+        .required()
+        .custom((value, helpers) => {
+          if (!businessRuleValidators.notReservedUsername(value)) {
+            return helpers.error('business.usernameReserved');
+          }
+          if (!businessRuleValidators.noProfanity(value)) {
+            return helpers.error('business.profanityDetected');
+          }
+          return value;
+        })
+        .messages({
+          'string.alphanum': 'Username must only contain alphanumeric characters',
+          'string.min': 'Username must be at least 3 characters long',
+          'string.max': 'Username cannot exceed 30 characters',
+          'any.required': 'Username is required',
+          'business.usernameReserved': getLocalizedMessage('USERNAME_RESERVED'),
+          'business.profanityDetected': getLocalizedMessage('PROFANITY_DETECTED')
+        }),
+      email: Joi.string()
+        .email({ tlds: { allow: false } })
+        .required()
+        .custom((value, helpers) => {
+          if (allowedEmailDomains.length > 0) {
+            const domain = value.split('@')[1]?.toLowerCase();
+            if (!allowedEmailDomains.includes(domain)) {
+              return helpers.error('business.emailDomainNotAllowed', { domain });
+            }
+          }
+          return value;
+        })
+        .messages({
+          'string.email': 'Please provide a valid email address',
+          'any.required': 'Email is required',
+          'business.emailDomainNotAllowed': getLocalizedMessage('EMAIL_DOMAIN_NOT_ALLOWED')
+        }),
+      password: Joi.string()
+        .min(8)
+        .max(128)
+        .pattern(new RegExp('^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*])'))
+        .required()
+        .custom((value, helpers) => {
+          if (!businessRuleValidators.notCommonPassword(value)) {
+            return helpers.error('business.passwordTooCommon');
+          }
+          return value;
+        })
+        .messages({
+          'string.min': 'Password must be at least 8 characters long',
+          'string.max': 'Password cannot exceed 128 characters',
+          'string.pattern.base': 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
+          'any.required': 'Password is required',
+          'business.passwordTooCommon': getLocalizedMessage('PASSWORD_COMMON')
+        }),
+      confirmPassword: Joi.string()
+        .valid(Joi.ref('password'))
+        .required()
+        .messages({
+          'any.only': 'Passwords do not match',
+          'any.required': 'Password confirmation is required'
+        }),
+      firstName: Joi.string()
+        .min(1)
+        .max(50)
+        .pattern(new RegExp('^[a-zA-Z\\s]+$'))
+        .optional()
+        .custom((value, helpers) => {
+          if (value && !businessRuleValidators.noProfanity(value)) {
+            return helpers.error('business.profanityDetected');
+          }
+          return value;
+        })
+        .messages({
+          'string.min': 'First name must be at least 1 character long',
+          'string.max': 'First name cannot exceed 50 characters',
+          'string.pattern.base': 'First name must only contain letters and spaces',
+          'business.profanityDetected': getLocalizedMessage('PROFANITY_DETECTED')
+        }),
+      lastName: Joi.string()
+        .min(1)
+        .max(50)
+        .pattern(new RegExp('^[a-zA-Z\\s]+$'))
+        .optional()
+        .custom((value, helpers) => {
+          if (value && !businessRuleValidators.noProfanity(value)) {
+            return helpers.error('business.profanityDetected');
+          }
+          return value;
+        })
+        .messages({
+          'string.min': 'Last name must be at least 1 character long',
+          'string.max': 'Last name cannot exceed 50 characters',
+          'string.pattern.base': 'Last name must only contain letters and spaces',
+          'business.profanityDetected': getLocalizedMessage('PROFANITY_DETECTED')
+        }),
+      dateOfBirth: Joi.date()
+        .optional()
+        .custom((value, helpers) => {
+          if (value && !businessRuleValidators.validAge(value.toISOString(), minAge, maxAge)) {
+            return helpers.error('business.ageInvalid', { minAge, maxAge });
+          }
+          return value;
+        })
+        .messages({
+          'date.base': 'Date of birth must be a valid date',
+          'business.ageInvalid': getLocalizedMessage('AGE_INVALID', 'en', { minAge, maxAge })
+        }),
+      phoneNumber: Joi.string()
+        .optional()
+        .custom((value, helpers) => {
+          if (value && !businessRuleValidators.validPhoneNumber(value)) {
+            return helpers.error('business.phoneNumberInvalid');
+          }
+          return value;
+        })
+        .messages({
+          'business.phoneNumberInvalid': getLocalizedMessage('PHONE_NUMBER_INVALID')
+        })
+    });
+  },
+
+  // Enhanced user profile with business rules
+  userProfileWithBusinessRules: (options: { allowedEmailDomains?: string[] } = {}) => {
+    const { allowedEmailDomains = [] } = options;
+    
+    return Joi.object({
+      firstName: Joi.string()
+        .min(1)
+        .max(50)
+        .pattern(new RegExp('^[a-zA-Z\\s]+$'))
+        .optional()
+        .custom((value, helpers) => {
+          if (value && !businessRuleValidators.noProfanity(value)) {
+            return helpers.error('business.profanityDetected');
+          }
+          return value;
+        })
+        .messages({
+          'string.min': 'First name must be at least 1 character long',
+          'string.max': 'First name cannot exceed 50 characters',
+          'string.pattern.base': 'First name must only contain letters and spaces',
+          'business.profanityDetected': getLocalizedMessage('PROFANITY_DETECTED')
+        }),
+      lastName: Joi.string()
+        .min(1)
+        .max(50)
+        .pattern(new RegExp('^[a-zA-Z\\s]+$'))
+        .optional()
+        .custom((value, helpers) => {
+          if (value && !businessRuleValidators.noProfanity(value)) {
+            return helpers.error('business.profanityDetected');
+          }
+          return value;
+        })
+        .messages({
+          'string.min': 'Last name must be at least 1 character long',
+          'string.max': 'Last name cannot exceed 50 characters',
+          'string.pattern.base': 'Last name must only contain letters and spaces',
+          'business.profanityDetected': getLocalizedMessage('PROFANITY_DETECTED')
+        }),
+      email: Joi.string()
+        .email({ tlds: { allow: false } })
+        .optional()
+        .custom((value, helpers) => {
+          if (value && allowedEmailDomains.length > 0) {
+            const domain = value.split('@')[1]?.toLowerCase();
+            if (!allowedEmailDomains.includes(domain)) {
+              return helpers.error('business.emailDomainNotAllowed', { domain });
+            }
+          }
+          return value;
+        })
+        .messages({
+          'string.email': 'Please provide a valid email address',
+          'business.emailDomainNotAllowed': getLocalizedMessage('EMAIL_DOMAIN_NOT_ALLOWED')
+        }),
+      phoneNumber: Joi.string()
+        .optional()
+        .custom((value, helpers) => {
+          if (value && !businessRuleValidators.validPhoneNumber(value)) {
+            return helpers.error('business.phoneNumberInvalid');
+          }
+          return value;
+        })
+        .messages({
+          'business.phoneNumberInvalid': getLocalizedMessage('PHONE_NUMBER_INVALID')
+        })
+    });
+  }
+};
+
+/**
+ * Localized business rule validators with error codes
+ */
+export const localizedBusinessRuleValidators = {
+  /**
+   * Email domain validation with localized errors
+   */
+  allowedEmailDomain: (allowedDomains: string[] = []) => 
+    createLocalizedValidator(businessRuleValidators.allowedEmailDomain, 'EMAIL_DOMAIN_NOT_ALLOWED', allowedDomains),
+
+  /**
+   * Common password validation with localized errors
+   */
+  notCommonPassword: () => 
+    createLocalizedValidator(businessRuleValidators.notCommonPassword, 'PASSWORD_COMMON'),
+
+  /**
+   * Reserved username validation with localized errors
+   */
+  notReservedUsername: () => 
+    createLocalizedValidator(businessRuleValidators.notReservedUsername, 'USERNAME_RESERVED'),
+
+  /**
+   * Profanity validation with localized errors
+   */
+  noProfanity: () => 
+    createLocalizedValidator(businessRuleValidators.noProfanity, 'PROFANITY_DETECTED'),
+
+  /**
+   * Phone number validation with localized errors
+   */
+  validPhoneNumber: () => 
+    createLocalizedValidator(businessRuleValidators.validPhoneNumber, 'FIELD_REQUIRED'),
+
+  /**
+   * Date range validation with localized errors
+   */
+  validDateRange: (minDate?: Date, maxDate?: Date) => 
+    createLocalizedValidator(businessRuleValidators.validDateRange, 'FIELD_REQUIRED', minDate, maxDate),
+
+  /**
+   * Age validation with localized errors
+   */
+  validAge: (minAge: number = 13, maxAge: number = 120) => 
+    createLocalizedValidator(businessRuleValidators.validAge, 'FIELD_REQUIRED', minAge, maxAge)
+};
+
+/**
  * Rate limiting validation
  */
 export const rateLimitValidation = (limit: number, windowMs: number) => {
@@ -930,10 +1449,19 @@ export const rateLimitValidation = (limit: number, windowMs: number) => {
         count: record.count,
         limit
       });
+      
+      const language = detectLanguage(req);
+      const retryAfter = Math.ceil((record.resetTime - now) / 1000);
+      const errorObj = getLocalizedError('RATE_LIMIT_EXCEEDED', language, { retryAfter });
+      
       return res.status(429).json({
         error: 'Rate limit exceeded',
-        message: 'Too many requests. Please try again later.',
-        retryAfter: Math.ceil((record.resetTime - now) / 1000)
+        message: errorObj.message,
+        code: errorObj.code,
+        severity: errorObj.severity,
+        retryAfter,
+        language,
+        timestamp: new Date().toISOString()
       });
     }
     
@@ -973,7 +1501,12 @@ export default {
   validateAndSanitize,
   comprehensiveValidation,
   validationSchemas,
+  enhancedValidationSchemas,
   businessRuleValidators,
+  localizedBusinessRuleValidators,
+  createLocalizedValidator,
+  createCustomJoiValidators,
+  createExtendedJoi,
   rateLimitValidation,
   isValidEmail,
   isStrongPassword

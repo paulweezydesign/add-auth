@@ -308,6 +308,65 @@ export const errorMessages: Record<string, LocalizedError> = {
       ru: 'Аккаунт временно заблокирован из-за множественных неудачных попыток входа',
       ar: 'الحساب مغلق مؤقتاً بسبب عدة محاولات دخول فاشلة'
     }
+  },
+
+  // Additional Business Rule Errors
+  PHONE_NUMBER_INVALID: {
+    code: 'PHONE_NUMBER_INVALID',
+    category: 'business_rules',
+    severity: 'medium',
+    translations: {
+      en: 'Invalid phone number format',
+      es: 'Formato de número de teléfono inválido',
+      fr: 'Format de numéro de téléphone invalide',
+      de: 'Ungültiges Telefonnummernformat',
+      it: 'Formato numero di telefono non valido',
+      pt: 'Formato de número de telefone inválido',
+      zh: '电话号码格式无效',
+      ja: '電話番号の形式が無効です',
+      ko: '전화번호 형식이 잘못되었습니다',
+      ru: 'Неверный формат номера телефона',
+      ar: 'تنسيق رقم الهاتف غير صحيح'
+    }
+  },
+
+  AGE_INVALID: {
+    code: 'AGE_INVALID',
+    category: 'business_rules',
+    severity: 'medium',
+    translations: {
+      en: 'Age must be between {minAge} and {maxAge} years',
+      es: 'La edad debe estar entre {minAge} y {maxAge} años',
+      fr: 'L\'âge doit être entre {minAge} et {maxAge} ans',
+      de: 'Das Alter muss zwischen {minAge} und {maxAge} Jahren liegen',
+      it: 'L\'età deve essere compresa tra {minAge} e {maxAge} anni',
+      pt: 'A idade deve estar entre {minAge} e {maxAge} anos',
+      zh: '年龄必须在 {minAge} 到 {maxAge} 岁之间',
+      ja: '年齢は{minAge}歳から{maxAge}歳の間である必要があります',
+      ko: '나이는 {minAge}세에서 {maxAge}세 사이여야 합니다',
+      ru: 'Возраст должен быть от {minAge} до {maxAge} лет',
+      ar: 'يجب أن يكون العمر بين {minAge} و {maxAge} سنة'
+    },
+    defaultParams: { minAge: 13, maxAge: 120 }
+  },
+
+  DATE_RANGE_INVALID: {
+    code: 'DATE_RANGE_INVALID',
+    category: 'business_rules',
+    severity: 'medium',
+    translations: {
+      en: 'Date is outside the allowed range',
+      es: 'La fecha está fuera del rango permitido',
+      fr: 'La date est en dehors de la plage autorisée',
+      de: 'Das Datum liegt außerhalb des zulässigen Bereichs',
+      it: 'La data è al di fuori dell\'intervallo consentito',
+      pt: 'A data está fora do intervalo permitido',
+      zh: '日期超出了允许的范围',
+      ja: '日付が許可された範囲外です',
+      ko: '날짜가 허용된 범위를 벗어났습니다',
+      ru: 'Дата находится вне допустимого диапазона',
+      ar: 'التاريخ خارج النطاق المسموح'
+    }
   }
 };
 
