@@ -4,7 +4,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import * as csrf from 'csrf';
+import csrf from 'csrf';
 import { logger } from '../utils/logger';
 import { redisClient } from './rateLimiter';
 

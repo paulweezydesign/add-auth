@@ -6,6 +6,21 @@
 import { Request, Response, NextFunction } from 'express';
 import xss from 'xss';
 import { logger } from '../utils/logger';
+import crypto from 'crypto';
+
+/**
+ * XSS attack tracking for rate limiting
+ */
+const xssAttempts = new Map<string, { count: number; lastAttempt: number; blocked: boolean }>();
+
+/**
+ * Rate limiting for XSS attempts
+ */
+const XSS_RATE_LIMIT = {
+  maxAttempts: 5,
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  blockDuration: 60 * 60 * 1000 // 1 hour
+};
 
 /**
  * XSS Protection Configuration
@@ -299,70 +314,314 @@ export const safeJsonParse = (jsonString: string, config: XSSProtectionConfig = 
 };
 
 /**
- * XSS detection utility
+ * Extended XSS detection patterns
  */
-export const detectXSS = (input: string): { detected: boolean; patterns: string[] } => {
-  const xssPatterns = [
-    /<script[^>]*>.*?<\/script>/gi,
-    /<iframe[^>]*>.*?<\/iframe>/gi,
-    /<object[^>]*>.*?<\/object>/gi,
-    /<embed[^>]*>/gi,
-    /javascript:/gi,
-    /vbscript:/gi,
-    /onload=/gi,
-    /onerror=/gi,
-    /onclick=/gi,
-    /onmouseover=/gi,
-    /onfocus=/gi,
-    /onblur=/gi,
-    /onchange=/gi,
-    /onsubmit=/gi,
-    /document\.cookie/gi,
-    /document\.write/gi,
-    /window\.location/gi,
-    /eval\(/gi,
-    /setTimeout\(/gi,
-    /setInterval\(/gi
-  ];
+const advancedXSSPatterns = [
+  // Script tags
+  /<script[^>]*>.*?<\/script>/gi,
+  /<script[^>]*>/gi,
+  /<\/script>/gi,
+  
+  // Event handlers
+  /on\w+\s*=/gi,
+  /onload=/gi,
+  /onerror=/gi,
+  /onclick=/gi,
+  /onmouseover=/gi,
+  /onfocus=/gi,
+  /onblur=/gi,
+  /onchange=/gi,
+  /onsubmit=/gi,
+  /onkeydown=/gi,
+  /onkeyup=/gi,
+  /onkeypress=/gi,
+  /onmousedown=/gi,
+  /onmouseup=/gi,
+  /onmousemove=/gi,
+  /onmouseout=/gi,
+  /oncontextmenu=/gi,
+  /ondblclick=/gi,
+  /ondrag=/gi,
+  /ondrop=/gi,
+  /onwheel=/gi,
+  /onscroll=/gi,
+  
+  // JavaScript protocols
+  /javascript:/gi,
+  /vbscript:/gi,
+  /data:text\/html/gi,
+  /data:text\/javascript/gi,
+  /data:application\/javascript/gi,
+  
+  // Dangerous HTML elements
+  /<iframe[^>]*>.*?<\/iframe>/gi,
+  /<iframe[^>]*>/gi,
+  /<object[^>]*>.*?<\/object>/gi,
+  /<object[^>]*>/gi,
+  /<embed[^>]*>/gi,
+  /<applet[^>]*>/gi,
+  /<form[^>]*>/gi,
+  /<input[^>]*>/gi,
+  /<link[^>]*>/gi,
+  /<meta[^>]*>/gi,
+  /<style[^>]*>/gi,
+  
+  // DOM manipulation
+  /document\.cookie/gi,
+  /document\.write/gi,
+  /document\.writeln/gi,
+  /document\.createElement/gi,
+  /document\.getElementById/gi,
+  /document\.getElementsBy/gi,
+  /document\.querySelector/gi,
+  /window\.location/gi,
+  /location\.href/gi,
+  /location\.replace/gi,
+  /location\.assign/gi,
+  /window\.open/gi,
+  /window\.close/gi,
+  /window\.focus/gi,
+  /window\.blur/gi,
+  
+  // Code execution
+  /eval\(/gi,
+  /setTimeout\(/gi,
+  /setInterval\(/gi,
+  /Function\(/gi,
+  /new\s+Function/gi,
+  /execScript/gi,
+  /msWriteProfilerMark/gi,
+  
+  // Data extraction
+  /XMLHttpRequest/gi,
+  /ActiveXObject/gi,
+  /fetch\(/gi,
+  /\.ajax\(/gi,
+  /\.get\(/gi,
+  /\.post\(/gi,
+  /\.load\(/gi,
+  
+  // URL encoding attempts
+  /%3cscript/gi,
+  /%3c\/script%3e/gi,
+  /%3ciframe/gi,
+  /%3c%2fscript%3e/gi,
+  /%2522%253e/gi,
+  /%27%3e/gi,
+  
+  // HTML entities
+  /&lt;script/gi,
+  /&gt;&lt;\/script&gt;/gi,
+  /&#x3c;script/gi,
+  /&#60;script/gi,
+  
+  // CSS injection
+  /expression\(/gi,
+  /-moz-binding/gi,
+  /behavior:/gi,
+  /\.htc/gi,
+  /url\(/gi,
+  /@import/gi,
+  
+  // SVG injection
+  /<svg[^>]*>/gi,
+  /<foreignObject[^>]*>/gi,
+  /<use[^>]*>/gi,
+  /<image[^>]*>/gi,
+  
+  // Advanced payloads
+  /\\u[0-9a-fA-F]{4}/gi,
+  /\\x[0-9a-fA-F]{2}/gi,
+  /String\.fromCharCode/gi,
+  /unescape\(/gi,
+  /decodeURI/gi,
+  /decodeURIComponent/gi,
+  /escape\(/gi,
+  /encodeURI/gi,
+  /encodeURIComponent/gi,
+  
+  // Template injection
+  /\{\{.*\}\}/gi,
+  /\$\{.*\}/gi,
+  /<%.*%>/gi,
+  
+  // Comment injection
+  /<!--.*-->/gi,
+  /\/\*.*\*\//gi,
+  
+  // Attribute injection
+  /src\s*=\s*["']?data:/gi,
+  /href\s*=\s*["']?data:/gi,
+  /action\s*=\s*["']?data:/gi,
+  /formaction\s*=\s*["']?data:/gi,
+  
+  // CDATA injection
+  /<\!\[CDATA\[.*\]\]>/gi
+];
+
+/**
+ * XSS detection utility with advanced patterns
+ */
+export const detectXSS = (input: string): { detected: boolean; patterns: string[]; severity: 'low' | 'medium' | 'high' | 'critical' } => {
+  if (typeof input !== 'string' || input.length === 0) {
+    return { detected: false, patterns: [], severity: 'low' };
+  }
 
   const detectedPatterns: string[] = [];
+  let severity: 'low' | 'medium' | 'high' | 'critical' = 'low';
 
-  for (const pattern of xssPatterns) {
-    if (pattern.test(input)) {
-      detectedPatterns.push(pattern.source);
+  // Decode common encodings first
+  const decodedInputs = [
+    input,
+    decodeURIComponent(input).catch(() => input),
+    Buffer.from(input, 'base64').toString('utf-8').catch(() => input),
+    input.replace(/\\u([0-9a-fA-F]{4})/g, (match, code) => String.fromCharCode(parseInt(code, 16))),
+    input.replace(/\\x([0-9a-fA-F]{2})/g, (match, code) => String.fromCharCode(parseInt(code, 16))),
+    input.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&')
+  ];
+
+  for (const decoded of decodedInputs) {
+    if (typeof decoded === 'string') {
+      for (const pattern of advancedXSSPatterns) {
+        if (pattern.test(decoded)) {
+          detectedPatterns.push(pattern.source);
+          
+          // Determine severity based on pattern type
+          if (pattern.source.includes('script') || pattern.source.includes('eval') || pattern.source.includes('Function')) {
+            severity = 'critical';
+          } else if (pattern.source.includes('iframe') || pattern.source.includes('object') || pattern.source.includes('embed')) {
+            severity = severity === 'critical' ? 'critical' : 'high';
+          } else if (pattern.source.includes('on\\w+') || pattern.source.includes('javascript:')) {
+            severity = severity === 'critical' || severity === 'high' ? severity : 'medium';
+          }
+        }
+      }
     }
   }
 
   return {
     detected: detectedPatterns.length > 0,
-    patterns: detectedPatterns
+    patterns: [...new Set(detectedPatterns)], // Remove duplicates
+    severity
   };
 };
 
 /**
- * XSS detection middleware
+ * Track XSS attempts for rate limiting
  */
-export const xssDetection = () => {
+const trackXSSAttempt = (identifier: string, severity: 'low' | 'medium' | 'high' | 'critical'): boolean => {
+  const now = Date.now();
+  const record = xssAttempts.get(identifier);
+  
+  if (!record) {
+    xssAttempts.set(identifier, {
+      count: 1,
+      lastAttempt: now,
+      blocked: false
+    });
+    return false;
+  }
+  
+  // Reset count if outside window
+  if (now - record.lastAttempt > XSS_RATE_LIMIT.windowMs) {
+    record.count = 1;
+    record.lastAttempt = now;
+    record.blocked = false;
+    return false;
+  }
+  
+  // Check if still blocked
+  if (record.blocked && now - record.lastAttempt < XSS_RATE_LIMIT.blockDuration) {
+    return true;
+  }
+  
+  // Increment count
+  record.count++;
+  record.lastAttempt = now;
+  
+  // Block if exceeded attempts
+  if (record.count >= XSS_RATE_LIMIT.maxAttempts) {
+    record.blocked = true;
+    logger.error('XSS attack rate limit exceeded', {
+      identifier,
+      attempts: record.count,
+      severity,
+      blocked: true
+    });
+    return true;
+  }
+  
+  return false;
+};
+
+/**
+ * Generate CSP nonce for inline scripts
+ */
+export const generateCSPNonce = (): string => {
+  return crypto.randomBytes(16).toString('base64');
+};
+
+/**
+ * Enhanced XSS detection middleware with rate limiting
+ */
+export const xssDetection = (options: { blockOnDetection?: boolean; enableRateLimiting?: boolean } = {}) => {
+  const { blockOnDetection = true, enableRateLimiting = true } = options;
+  
   return (req: Request, res: Response, next: NextFunction) => {
+    const identifier = req.ip || 'unknown';
+    
+    // Check if IP is currently blocked
+    if (enableRateLimiting) {
+      const record = xssAttempts.get(identifier);
+      if (record?.blocked && Date.now() - record.lastAttempt < XSS_RATE_LIMIT.blockDuration) {
+        logger.warn('Blocked XSS attempt from rate-limited IP', {
+          ip: req.ip,
+          userAgent: req.get('user-agent'),
+          url: req.url,
+          method: req.method
+        });
+        return res.status(429).json({
+          error: 'Rate limit exceeded',
+          message: 'Too many malicious requests detected. Access temporarily blocked.'
+        });
+      }
+    }
+    
     const checkInput = (obj: any, path: string = '') => {
       if (typeof obj === 'string') {
         const detection = detectXSS(obj);
         if (detection.detected) {
+          // Track the attempt
+          if (enableRateLimiting) {
+            const blocked = trackXSSAttempt(identifier, detection.severity);
+            if (blocked) {
+              return res.status(429).json({
+                error: 'Rate limit exceeded',
+                message: 'Too many malicious requests detected. Access temporarily blocked.'
+              });
+            }
+          }
+          
           logger.warn('XSS attack detected', {
             path,
             patterns: detection.patterns,
+            severity: detection.severity,
             input: obj.substring(0, 200),
             ip: req.ip,
             userAgent: req.get('user-agent'),
             method: req.method,
-            url: req.url
+            url: req.url,
+            timestamp: new Date().toISOString()
           });
           
-          // Optionally block the request
-          return res.status(400).json({
-            error: 'Malicious input detected',
-            message: 'Request blocked due to potential XSS attack'
-          });
+          // Block the request if enabled
+          if (blockOnDetection) {
+            return res.status(400).json({
+              error: 'Malicious input detected',
+              message: 'Request blocked due to potential XSS attack',
+              severity: detection.severity
+            });
+          }
         }
       } else if (Array.isArray(obj)) {
         for (let i = 0; i < obj.length; i++) {
@@ -393,16 +652,121 @@ export const xssDetection = () => {
   };
 };
 
+/**
+ * XSS attempt cleanup (run periodically)
+ */
+export const cleanupXSSAttempts = () => {
+  const now = Date.now();
+  const expiredEntries: string[] = [];
+  
+  for (const [identifier, record] of xssAttempts.entries()) {
+    if (now - record.lastAttempt > XSS_RATE_LIMIT.blockDuration) {
+      expiredEntries.push(identifier);
+    }
+  }
+  
+  expiredEntries.forEach(identifier => {
+    xssAttempts.delete(identifier);
+  });
+  
+  logger.info('XSS attempt cleanup completed', {
+    cleaned: expiredEntries.length,
+    remaining: xssAttempts.size
+  });
+};
+
+/**
+ * Get XSS attempt statistics
+ */
+export const getXSSStats = () => {
+  const stats = {
+    totalTracked: xssAttempts.size,
+    currentlyBlocked: 0,
+    topOffenders: [] as { identifier: string; count: number; lastAttempt: Date }[]
+  };
+  
+  const now = Date.now();
+  
+  for (const [identifier, record] of xssAttempts.entries()) {
+    if (record.blocked && now - record.lastAttempt < XSS_RATE_LIMIT.blockDuration) {
+      stats.currentlyBlocked++;
+    }
+    
+    stats.topOffenders.push({
+      identifier,
+      count: record.count,
+      lastAttempt: new Date(record.lastAttempt)
+    });
+  }
+  
+  // Sort by count descending
+  stats.topOffenders.sort((a, b) => b.count - a.count);
+  stats.topOffenders = stats.topOffenders.slice(0, 10); // Top 10
+  
+  return stats;
+};
+
+/**
+ * Advanced CSP middleware with nonce support
+ */
+export const advancedCSP = (options: { nonce?: string; reportUri?: string; enforceMode?: boolean } = {}) => {
+  const { nonce, reportUri, enforceMode = true } = options;
+  
+  return (req: Request, res: Response, next: NextFunction) => {
+    const cspNonce = nonce || generateCSPNonce();
+    
+    // Store nonce in request for use in templates
+    (req as any).cspNonce = cspNonce;
+    
+    const directives = [
+      "default-src 'self'",
+      `script-src 'self' 'nonce-${cspNonce}' 'strict-dynamic'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: https:",
+      "font-src 'self' data:",
+      "connect-src 'self'",
+      "frame-ancestors 'none'",
+      "form-action 'self'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "upgrade-insecure-requests"
+    ];
+    
+    if (reportUri) {
+      directives.push(`report-uri ${reportUri}`);
+    }
+    
+    const cspHeader = enforceMode ? 'Content-Security-Policy' : 'Content-Security-Policy-Report-Only';
+    const cspValue = directives.join('; ');
+    
+    res.setHeader(cspHeader, cspValue);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'geolocation=(), camera=(), microphone=(), payment=(), usb=(), screen-wake-lock=(), web-share=()');
+    
+    next();
+  };
+};
+
+// Start cleanup timer
+setInterval(cleanupXSSAttempts, 60 * 60 * 1000); // Every hour
+
 export default {
   xssProtection,
   strictXSSProtection,
   xssProtectFields,
   contentSecurityPolicy,
+  advancedCSP,
   sanitizeString,
   sanitizeObject,
   escapeHtml,
   sanitizeUrl,
   safeJsonParse,
   detectXSS,
-  xssDetection
+  xssDetection,
+  generateCSPNonce,
+  cleanupXSSAttempts,
+  getXSSStats
 };

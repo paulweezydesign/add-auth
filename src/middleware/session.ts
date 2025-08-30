@@ -1,10 +1,11 @@
 import session from 'express-session';
-import { RequestHandler } from 'express';
+import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { getRedisClient } from '../utils/redis';
 import { appConfig } from '../config';
 import { logger } from '../utils/logger';
 import { FingerprintService, DeviceFingerprint } from '../utils/fingerprint';
 import { SessionModel } from '../models/Session';
+import { SessionService, RedisSession } from '../services/sessionService';
 
 declare module 'express-session' {
   interface SessionData {
@@ -270,7 +271,181 @@ export const cleanupExpiredSessions = async (): Promise<void> => {
   }
 };
 
+// Redis Session Validation Middleware
+export const redisSessionValidationMiddleware = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    // Extract session ID from cookie or header
+    const sessionId = req.cookies?.sessionId || req.headers['x-session-id'] as string;
+    
+    if (!sessionId) {
+      return next();
+    }
+
+    // Validate session using Redis SessionService
+    const validation = await SessionService.validateSession(sessionId, req);
+    
+    if (!validation.isValid) {
+      logger.info('Redis session validation failed', {
+        sessionId,
+        reason: validation.reason,
+        requiresReauth: validation.requiresReauth,
+      });
+
+      // Clear the session cookie
+      res.clearCookie('sessionId');
+      
+      if (validation.requiresReauth) {
+        return res.status(401).json({
+          error: 'Authentication required',
+          message: 'Session security validation failed. Please log in again.',
+          code: 'SESSION_SECURITY_FAILED',
+        });
+      }
+
+      return next();
+    }
+
+    // Attach validated session to request
+    req.redisSession = validation.session;
+    req.user = {
+      id: validation.session!.user_id,
+      email: '', // Will be populated by auth middleware if needed
+      roles: [],
+    };
+
+    logger.debug('Redis session validated successfully', {
+      sessionId,
+      userId: validation.session!.user_id,
+      trustScore: validation.session!.trust_score,
+    });
+
+    next();
+  } catch (error) {
+    logger.error('Error in Redis session validation middleware', { error });
+    next(error);
+  }
+};
+
+// Enhanced authentication middleware that works with Redis sessions
+export const enhancedAuthMiddleware = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    // Check if we have a validated Redis session
+    if (req.redisSession && req.redisSession.is_active) {
+      logger.debug('Request authenticated via Redis session', {
+        sessionId: req.redisSession.id,
+        userId: req.redisSession.user_id,
+      });
+      return next();
+    }
+
+    // Fall back to JWT token validation if no Redis session
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        error: 'Authentication required',
+        message: 'No valid session or token provided',
+        code: 'AUTHENTICATION_REQUIRED',
+      });
+    }
+
+    // If we get here, the standard JWT middleware should handle it
+    next();
+  } catch (error) {
+    logger.error('Error in enhanced authentication middleware', { error });
+    next(error);
+  }
+};
+
+// Middleware to enforce session limits and detect anomalies
+export const sessionSecurityMiddleware = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    if (!req.redisSession) {
+      return next();
+    }
+
+    const session = req.redisSession;
+
+    // Check trust score
+    if (session.trust_score < 0.3) {
+      logger.warn('Low trust score detected, requiring re-authentication', {
+        sessionId: session.id,
+        userId: session.user_id,
+        trustScore: session.trust_score,
+      });
+
+      await SessionService.destroySession(session.id);
+      res.clearCookie('sessionId');
+
+      return res.status(401).json({
+        error: 'Security validation failed',
+        message: 'Session trust level too low. Please log in again.',
+        code: 'LOW_TRUST_SCORE',
+      });
+    }
+
+    // Check for excessive concurrent sessions (max 5)
+    if (session.concurrent_count > 5) {
+      logger.warn('Excessive concurrent sessions detected', {
+        sessionId: session.id,
+        userId: session.user_id,
+        concurrentCount: session.concurrent_count,
+      });
+
+      // This should have been handled during session creation, but double-check
+      const userSessions = await SessionService.getUserSessions(session.user_id);
+      if (userSessions.length > 5) {
+        await SessionService.destroyUserSessions(session.user_id, session.id);
+      }
+    }
+
+    // Log session access for monitoring
+    logger.debug('Session security check passed', {
+      sessionId: session.id,
+      userId: session.user_id,
+      trustScore: session.trust_score,
+      concurrentCount: session.concurrent_count,
+      lastAccessed: session.last_accessed,
+    });
+
+    next();
+  } catch (error) {
+    logger.error('Error in session security middleware', { error });
+    next(error);
+  }
+};
+
+// Extend Express Request interface to include Redis session
+declare global {
+  namespace Express {
+    interface Request {
+      redisSession?: RedisSession;
+    }
+  }
+}
+
 // Schedule session cleanup (run every hour)
 setInterval(cleanupExpiredSessions, 60 * 60 * 1000);
+
+// Also cleanup Redis sessions
+setInterval(async () => {
+  try {
+    const cleanupCount = await SessionService.cleanupExpiredSessions();
+    logger.info('Redis session cleanup completed', { cleanupCount });
+  } catch (error) {
+    logger.error('Redis session cleanup failed', { error });
+  }
+}, 60 * 60 * 1000);
 
 export default sessionMiddleware;

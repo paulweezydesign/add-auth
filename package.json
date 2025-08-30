@@ -24,6 +24,7 @@
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
     "@types/connect-redis": "^0.0.23",
+    "@types/cookie-parser": "^1.4.9",
     "@types/express-session": "^1.18.2",
     "@types/jsonwebtoken": "^9.0.6",
     "@types/node": "^20.11.30",
@@ -45,6 +46,7 @@
     "@types/nodemailer": "^6.4.17",
     "bcrypt": "^5.1.1",
     "connect-redis": "^9.0.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "csrf": "^3.1.0",
     "dotenv": "^16.4.5",
