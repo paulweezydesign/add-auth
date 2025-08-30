@@ -253,6 +253,160 @@ export const createUserRateLimiter = (options: {
 };
 
 /**
+ * Exponential backoff rate limiter for repeated violations
+ */
+export const createExponentialBackoffRateLimiter = (options: {
+  baseWindowMs: number;
+  maxWindowMs: number;
+  baseMax: number;
+  keyPrefix: string;
+  message?: string;
+  backoffMultiplier?: number;
+}) => {
+  const backoffMultiplier = options.backoffMultiplier || 2;
+  
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const key = `${options.keyPrefix}:${req.ip || req.connection.remoteAddress || 'unknown'}`;
+      const violationKey = `${key}:violations`;
+      
+      // Get current violation count
+      const violationCount = parseInt(await redisClient.get(violationKey) || '0');
+      
+      // Calculate current window and max based on violation count
+      const currentWindowMs = Math.min(
+        options.baseWindowMs * Math.pow(backoffMultiplier, violationCount),
+        options.maxWindowMs
+      );
+      const currentMax = Math.max(1, Math.floor(options.baseMax / Math.pow(backoffMultiplier, violationCount)));
+      
+      // Create dynamic rate limiter
+      const dynamicLimiter = rateLimit({
+        store: new RedisStore({
+          sendCommand: (...args: string[]) => redisClient.call(...args),
+        }),
+        windowMs: currentWindowMs,
+        max: currentMax,
+        keyGenerator: () => key,
+        standardHeaders: true,
+        legacyHeaders: false,
+        handler: async (req: Request, res: Response) => {
+          // Increment violation count
+          const newViolationCount = violationCount + 1;
+          await redisClient.setex(violationKey, Math.floor(options.maxWindowMs / 1000), newViolationCount.toString());
+          
+          const nextWindowMs = Math.min(
+            options.baseWindowMs * Math.pow(backoffMultiplier, newViolationCount),
+            options.maxWindowMs
+          );
+          
+          logger.warn(`Exponential backoff triggered for ${options.keyPrefix}`, {
+            ip: req.ip,
+            violationCount: newViolationCount,
+            currentWindowMs,
+            nextWindowMs,
+            currentMax,
+            userAgent: req.get('user-agent'),
+            path: req.path,
+            method: req.method
+          });
+          
+          res.status(429).json({
+            error: 'Too many requests',
+            message: options.message || 'Rate limit exceeded with exponential backoff. Please wait longer before trying again.',
+            retryAfter: Math.floor(nextWindowMs / 1000),
+            violationCount: newViolationCount,
+            backoffActive: true
+          });
+        }
+      });
+      
+      // Apply the dynamic rate limiter
+      dynamicLimiter(req, res, next);
+    } catch (error) {
+      logger.error('Error in exponential backoff rate limiter:', error);
+      next(); // Continue without rate limiting if error occurs
+    }
+  };
+};
+
+/**
+ * Sliding window rate limiter with more precise control
+ */
+export const createSlidingWindowRateLimiter = (options: {
+  windowMs: number;
+  maxRequests: number;
+  keyPrefix: string;
+  message?: string;
+  retryAfter?: string;
+}) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const key = `${options.keyPrefix}:${req.ip || req.connection.remoteAddress || 'unknown'}`;
+      const now = Date.now();
+      const windowStart = now - options.windowMs;
+      
+      // Use Redis sorted set for sliding window
+      const pipe = redisClient.pipeline();
+      
+      // Remove old entries
+      pipe.zremrangebyscore(key, '-inf', windowStart);
+      
+      // Count current requests in window
+      pipe.zcard(key);
+      
+      // Add current request
+      pipe.zadd(key, now, `${now}-${Math.random()}`);
+      
+      // Set expiration
+      pipe.expire(key, Math.ceil(options.windowMs / 1000));
+      
+      const results = await pipe.exec();
+      
+      if (!results) {
+        throw new Error('Redis pipeline failed');
+      }
+      
+      const currentCount = results[1][1] as number;
+      
+      if (currentCount >= options.maxRequests) {
+        // Get the oldest request in the current window
+        const oldestRequest = await redisClient.zrange(key, 0, 0, 'WITHSCORES');
+        const retryAfter = oldestRequest.length > 0 
+          ? Math.ceil((parseInt(oldestRequest[1]) + options.windowMs - now) / 1000)
+          : Math.ceil(options.windowMs / 1000);
+        
+        logger.warn(`Sliding window rate limit exceeded for ${options.keyPrefix}`, {
+          ip: req.ip,
+          currentCount,
+          maxRequests: options.maxRequests,
+          windowMs: options.windowMs,
+          retryAfter,
+          userAgent: req.get('user-agent'),
+          path: req.path,
+          method: req.method
+        });
+        
+        res.status(429).json({
+          error: 'Too many requests',
+          message: options.message || 'Rate limit exceeded. Please try again later.',
+          retryAfter: retryAfter,
+          currentCount,
+          maxRequests: options.maxRequests,
+          windowMs: options.windowMs
+        });
+        return;
+      }
+      
+      next();
+    } catch (error) {
+      logger.error('Error in sliding window rate limiter:', error);
+      next(); // Continue without rate limiting if error occurs
+    }
+  };
+};
+
+/**
  * Rate limiter health check middleware
  */
 export const rateLimiterHealthCheck = async (req: Request, res: Response, next: NextFunction) => {

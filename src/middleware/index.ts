@@ -8,6 +8,8 @@ export {
   rateLimiters,
   createCustomRateLimiter,
   createUserRateLimiter,
+  createExponentialBackoffRateLimiter,
+  createSlidingWindowRateLimiter,
   rateLimiterHealthCheck,
   closeRedisConnection,
   redisClient
@@ -72,6 +74,47 @@ export {
 export type { SQLInjectionConfig } from './sqlInjectionPrevention';
 
 /**
+ * Enhanced rate limiter configurations
+ */
+export const enhancedRateLimiters = {
+  // Exponential backoff for auth attempts
+  authWithBackoff: createExponentialBackoffRateLimiter({
+    baseWindowMs: 15 * 60 * 1000, // 15 minutes base
+    maxWindowMs: 24 * 60 * 60 * 1000, // 24 hours max
+    baseMax: 5, // 5 attempts base
+    keyPrefix: 'auth-backoff',
+    message: 'Too many failed authentication attempts. Exponential backoff applied.',
+    backoffMultiplier: 2
+  }),
+  
+  // Sliding window for login attempts
+  loginSlidingWindow: createSlidingWindowRateLimiter({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    maxRequests: 5,
+    keyPrefix: 'login-sliding',
+    message: 'Too many login attempts. Please wait before trying again.'
+  }),
+  
+  // Sliding window for registration
+  registrationSlidingWindow: createSlidingWindowRateLimiter({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    maxRequests: 3,
+    keyPrefix: 'registration-sliding',
+    message: 'Too many registration attempts. Please wait before trying again.'
+  }),
+  
+  // Exponential backoff for password reset
+  passwordResetWithBackoff: createExponentialBackoffRateLimiter({
+    baseWindowMs: 60 * 60 * 1000, // 1 hour base
+    maxWindowMs: 24 * 60 * 60 * 1000, // 24 hours max
+    baseMax: 3, // 3 attempts base
+    keyPrefix: 'password-reset-backoff',
+    message: 'Too many password reset attempts. Exponential backoff applied.',
+    backoffMultiplier: 3
+  })
+};
+
+/**
  * Combined security middleware stack
  */
 export const securityMiddleware = {
@@ -91,6 +134,25 @@ export const securityMiddleware = {
     sanitizeInput('body')
   ],
 
+  // Enhanced authentication security stack with exponential backoff
+  authEnhanced: [
+    enhancedRateLimiters.authWithBackoff,
+    rateLimiters.auth,
+    csrfProtection(),
+    xssProtection(),
+    sqlInjectionPrevention(),
+    sanitizeInput('body')
+  ],
+
+  // Login with sliding window
+  login: [
+    enhancedRateLimiters.loginSlidingWindow,
+    csrfProtection(),
+    xssProtection(),
+    sqlInjectionPrevention(),
+    sanitizeInput('body')
+  ],
+
   // Admin security stack
   admin: [
     rateLimiters.general,
@@ -101,8 +163,9 @@ export const securityMiddleware = {
     sanitizeInput('query')
   ],
 
-  // Password reset security stack
+  // Password reset security stack with exponential backoff
   passwordReset: [
+    enhancedRateLimiters.passwordResetWithBackoff,
     rateLimiters.passwordReset,
     csrfProtection(),
     xssProtection(),
@@ -110,8 +173,9 @@ export const securityMiddleware = {
     sanitizeInput('body')
   ],
 
-  // Registration security stack
+  // Registration security stack with sliding window
   registration: [
+    enhancedRateLimiters.registrationSlidingWindow,
     rateLimiters.registration,
     csrfProtection(),
     xssProtection(),
@@ -268,6 +332,7 @@ export const securityHealthCheck = async () => {
 
 export default {
   rateLimiters,
+  enhancedRateLimiters,
   csrfProtection,
   xssProtection,
   sqlInjectionPrevention,
