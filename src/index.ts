@@ -1,9 +1,11 @@
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import { appConfig } from './config';
 import { logger } from './utils/logger';
 import { db } from './database/connection';
+import { createRedisClient } from './utils/redis';
 import { 
   applySecurityMiddleware,
   securityHealthCheck,
@@ -51,6 +53,7 @@ app.use(applySecurityMiddleware(environment));
 // Basic middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(cookieParser());
 
 // Health check endpoint
 app.get('/health', async (req, res) => {
@@ -58,10 +61,21 @@ app.get('/health', async (req, res) => {
     const dbStatus = await db.testConnection();
     const securityStatus = await securityHealthCheck();
     
+    // Check Redis connection
+    let redisStatus = false;
+    try {
+      const redisClient = await createRedisClient();
+      await redisClient.ping();
+      redisStatus = true;
+    } catch (error) {
+      logger.warn('Redis health check failed:', error);
+    }
+    
     res.json({
       status: 'healthy',
       timestamp: new Date().toISOString(),
       database: dbStatus ? 'connected' : 'disconnected',
+      redis: redisStatus ? 'connected' : 'disconnected',
       security: securityStatus,
       version: process.env.npm_package_version || '1.0.0',
     });
@@ -119,13 +133,38 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
-// Start server
-const PORT = appConfig.server.port;
-app.listen(PORT, () => {
-  logger.info(`Server running on port ${PORT}`, {
-    environment: appConfig.server.nodeEnv,
-    port: PORT,
-  });
-});
+// Initialize Redis and start server
+async function startServer() {
+  try {
+    // Initialize Redis connection
+    logger.info('Initializing Redis connection...');
+    await createRedisClient();
+    logger.info('Redis connection established');
+    
+    // Start server
+    const PORT = appConfig.server.port;
+    app.listen(PORT, () => {
+      logger.info(`Server running on port ${PORT}`, {
+        environment: appConfig.server.nodeEnv,
+        port: PORT,
+        redis: 'connected'
+      });
+    });
+  } catch (error) {
+    logger.error('Failed to initialize Redis, starting without Redis support:', error);
+    
+    // Start server without Redis
+    const PORT = appConfig.server.port;
+    app.listen(PORT, () => {
+      logger.info(`Server running on port ${PORT} (Redis disabled)`, {
+        environment: appConfig.server.nodeEnv,
+        port: PORT,
+        redis: 'disconnected'
+      });
+    });
+  }
+}
+
+startServer();
 
 export default app;

@@ -12,13 +12,18 @@ import {
   securityMiddleware,
   authenticateToken
 } from '../middleware';
+import { redisSessionValidationMiddleware, enhancedAuthMiddleware, sessionSecurityMiddleware } from '../middleware/session';
 import {
   register,
   login,
   logout,
   refresh,
   getUserInfo,
-  updateProfile
+  updateProfile,
+  getUserSessions,
+  revokeSession,
+  revokeAllOtherSessions,
+  extendSession
 } from '../controllers/auth';
 
 const router = Router();
@@ -147,6 +152,76 @@ router.get(
       csrfToken: res.locals.csrfToken
     });
   }
+);
+
+/**
+ * GET /api/auth/sessions
+ * Get user's active sessions
+ */
+router.get(
+  '/sessions',
+  // Redis session validation
+  redisSessionValidationMiddleware,
+  // Enhanced authentication
+  enhancedAuthMiddleware,
+  // Session security checks
+  sessionSecurityMiddleware,
+  // Controller implementation
+  getUserSessions
+);
+
+/**
+ * DELETE /api/auth/sessions/:sessionId
+ * Revoke a specific session
+ */
+router.delete(
+  '/sessions/:sessionId',
+  // Redis session validation
+  redisSessionValidationMiddleware,
+  // Enhanced authentication
+  enhancedAuthMiddleware,
+  // Session security checks
+  sessionSecurityMiddleware,
+  // CSRF protection for state-changing operations
+  csrfProtection(),
+  // Controller implementation
+  revokeSession
+);
+
+/**
+ * DELETE /api/auth/sessions
+ * Revoke all other sessions (except current)
+ */
+router.delete(
+  '/sessions',
+  // Redis session validation
+  redisSessionValidationMiddleware,
+  // Enhanced authentication
+  enhancedAuthMiddleware,
+  // Session security checks
+  sessionSecurityMiddleware,
+  // CSRF protection for state-changing operations
+  csrfProtection(),
+  // Controller implementation
+  revokeAllOtherSessions
+);
+
+/**
+ * PUT /api/auth/session/extend
+ * Extend current session expiration
+ */
+router.put(
+  '/session/extend',
+  // Redis session validation
+  redisSessionValidationMiddleware,
+  // Enhanced authentication
+  enhancedAuthMiddleware,
+  // Session security checks
+  sessionSecurityMiddleware,
+  // CSRF protection for state-changing operations
+  csrfProtection(),
+  // Controller implementation
+  extendSession
 );
 
 export default router;
