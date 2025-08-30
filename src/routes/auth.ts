@@ -1,6 +1,6 @@
 /**
  * Authentication Routes
- * Example implementation with comprehensive security middleware
+ * Core authentication API endpoints with comprehensive security
  */
 
 import { Router } from 'express';
@@ -9,10 +9,17 @@ import {
   csrfProtection,
   validateBody,
   validationSchemas,
-  xssProtection,
-  sqlInjectionPrevention,
-  securityMiddleware
+  securityMiddleware,
+  authenticateToken
 } from '../middleware';
+import {
+  register,
+  login,
+  logout,
+  refresh,
+  getUserInfo,
+  updateProfile
+} from '../controllers/auth';
 
 const router = Router();
 
@@ -29,15 +36,8 @@ router.post(
   rateLimiters.registration,
   // Validate request body
   validateBody(validationSchemas.userRegistration),
-  // Controller would go here
-  async (req, res) => {
-    // Registration logic would be implemented here
-    res.json({ 
-      success: true, 
-      message: 'Registration endpoint with security middleware',
-      csrfToken: res.locals.csrfToken 
-    });
-  }
+  // Controller implementation
+  register
 );
 
 /**
@@ -46,35 +46,70 @@ router.post(
  */
 router.post(
   '/login',
+  // Apply login-specific rate limiting
+  rateLimiters.login,
   // Validate login credentials
   validateBody(validationSchemas.userLogin),
-  // Controller would go here
-  async (req, res) => {
-    // Login logic would be implemented here
-    res.json({ 
-      success: true, 
-      message: 'Login endpoint with security middleware',
-      csrfToken: res.locals.csrfToken 
-    });
-  }
+  // Controller implementation
+  login
 );
 
 /**
  * POST /api/auth/logout
- * User logout
+ * User logout with token blacklisting
  */
 router.post(
   '/logout',
+  // Authenticate user first
+  authenticateToken,
   // CSRF protection for state-changing operations
   csrfProtection(),
-  // Controller would go here
-  async (req, res) => {
-    // Logout logic would be implemented here
-    res.json({ 
-      success: true, 
-      message: 'Logout successful' 
-    });
-  }
+  // Controller implementation
+  logout
+);
+
+/**
+ * POST /api/auth/refresh
+ * Refresh access token using refresh token
+ */
+router.post(
+  '/refresh',
+  // Apply refresh-specific rate limiting
+  rateLimiters.refresh,
+  // Validate refresh token
+  validateBody(validationSchemas.refreshToken),
+  // Controller implementation
+  refresh
+);
+
+/**
+ * GET /api/auth/me
+ * Get current user information
+ */
+router.get(
+  '/me',
+  // Authenticate user first
+  authenticateToken,
+  // Basic security for read operations
+  securityMiddleware.basic,
+  // Controller implementation
+  getUserInfo
+);
+
+/**
+ * PUT /api/auth/profile
+ * Update user profile
+ */
+router.put(
+  '/profile',
+  // Authenticate user first
+  authenticateToken,
+  // Validate profile update data
+  validateBody(validationSchemas.userProfileUpdate),
+  // CSRF protection for state-changing operations
+  csrfProtection(),
+  // Controller implementation
+  updateProfile
 );
 
 /**
@@ -83,14 +118,17 @@ router.post(
  */
 router.post(
   '/change-password',
+  // Authenticate user first
+  authenticateToken,
   // Validate password change request
   validateBody(validationSchemas.passwordChange),
-  // Controller would go here
+  // CSRF protection for state-changing operations
+  csrfProtection(),
+  // Controller would go here - TODO: implement password change
   async (req, res) => {
-    // Password change logic would be implemented here
     res.json({ 
       success: true, 
-      message: 'Password change endpoint with security middleware' 
+      message: 'Password change endpoint - implementation pending' 
     });
   }
 );
@@ -107,24 +145,6 @@ router.get(
     res.json({
       success: true,
       csrfToken: res.locals.csrfToken
-    });
-  }
-);
-
-/**
- * GET /api/auth/me
- * Get current user information
- */
-router.get(
-  '/me',
-  // Basic security for read operations
-  securityMiddleware.basic,
-  // Controller would go here
-  async (req, res) => {
-    // Get user info logic would be implemented here
-    res.json({ 
-      success: true, 
-      message: 'User info endpoint with security middleware' 
     });
   }
 );

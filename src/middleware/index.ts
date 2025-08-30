@@ -71,6 +71,14 @@ export {
 } from './sqlInjectionPrevention';
 export type { SQLInjectionConfig } from './sqlInjectionPrevention';
 
+// Authentication Middleware
+export {
+  authenticateToken,
+  optionalAuth,
+  requireRole,
+  handleAuthErrors
+} from './auth';
+
 /**
  * Combined security middleware stack
  */

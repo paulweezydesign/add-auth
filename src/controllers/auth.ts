@@ -1,5 +1,4 @@
 import { Request, Response } from 'express';
-import { z } from 'zod';
 import { UserModel } from '../models/User';
 import { SessionModel } from '../models/Session';
 import { AuthUtils } from '../utils/auth';
@@ -9,35 +8,22 @@ import { extractTokenFromHeader } from '../utils/jwt';
 import { UserPayload, JWTPayload } from '../types/jwt';
 import { UserStatus } from '../types/user';
 import { logger } from '../utils/logger';
-
-// Validation schemas
-const registerSchema = z.object({
-  email: z.string().email('Invalid email format'),
-  password: z.string().min(8, 'Password must be at least 8 characters')
-});
-
-const loginSchema = z.object({
-  email: z.string().email('Invalid email format'),
-  password: z.string().min(1, 'Password is required')
-});
-
-const refreshSchema = z.object({
-  refreshToken: z.string().min(1, 'Refresh token is required')
-});
+import { defaultPasswordSecurity } from '../security/password-security';
 
 /**
  * Register a new user
  */
 export async function register(req: Request, res: Response): Promise<void> {
   try {
-    // Validate input
-    const { email, password } = registerSchema.parse(req.body);
+    // Input is already validated by middleware
+    const { email, password, username } = req.body;
 
-    // Additional password validation
-    const passwordValidation = AuthUtils.isValidPassword(password);
-    if (!passwordValidation.valid) {
+    // Additional password validation using password security module
+    const passwordValidation = defaultPasswordSecurity.validatePassword(password);
+    if (!passwordValidation.isValid) {
       res.status(400).json({
         error: 'Password validation failed',
+        message: 'Password does not meet security requirements',
         details: passwordValidation.errors
       });
       return;
@@ -58,7 +44,7 @@ export async function register(req: Request, res: Response): Promise<void> {
 
     // Create user
     const user = await UserModel.create({
-      email: AuthUtils.sanitizeInput(email),
+      email: email.toLowerCase().trim(),
       password: hashedPassword
     });
 
@@ -102,14 +88,6 @@ export async function register(req: Request, res: Response): Promise<void> {
   } catch (error: any) {
     logger.error('Registration error:', error);
     
-    if (error instanceof z.ZodError) {
-      res.status(400).json({
-        error: 'Validation error',
-        details: error.errors
-      });
-      return;
-    }
-
     res.status(500).json({
       error: 'Registration failed',
       message: 'An error occurred during registration'
@@ -122,10 +100,10 @@ export async function register(req: Request, res: Response): Promise<void> {
  */
 export async function login(req: Request, res: Response): Promise<void> {
   try {
-    // Validate input
-    const { email, password } = loginSchema.parse(req.body);
+    // Input is already validated by middleware
+    const { email, password, rememberMe } = req.body;
 
-    // Find user
+    // Find user with password hash
     const user = await UserModel.findByEmail(email, true);
     if (!user) {
       res.status(401).json({
@@ -174,7 +152,7 @@ export async function login(req: Request, res: Response): Promise<void> {
     const session = await SessionModel.create({
       user_id: user.id,
       token: sessionToken,
-      expires_at: AuthUtils.calculateSessionExpiration(),
+      expires_at: AuthUtils.calculateSessionExpiration(rememberMe),
       ip_address: AuthUtils.getClientIp(req),
       user_agent: AuthUtils.getUserAgent(req) || undefined
     });
@@ -188,12 +166,14 @@ export async function login(req: Request, res: Response): Promise<void> {
 
     const tokens = await createAuthenticationTokens(userPayload, {
       ipAddress: AuthUtils.getClientIp(req),
-      userAgent: AuthUtils.getUserAgent(req) || undefined
+      userAgent: AuthUtils.getUserAgent(req) || undefined,
+      rememberMe
     });
 
     logger.info('User logged in successfully', { 
       userId: user.id, 
-      email: user.email 
+      email: user.email,
+      rememberMe: !!rememberMe
     });
 
     res.json({
@@ -202,21 +182,14 @@ export async function login(req: Request, res: Response): Promise<void> {
         id: user.id,
         email: user.email,
         last_login: user.last_login,
-        status: user.status
+        status: user.status,
+        email_verified: user.email_verified
       },
       tokens
     });
   } catch (error: any) {
     logger.error('Login error:', error);
     
-    if (error instanceof z.ZodError) {
-      res.status(400).json({
-        error: 'Validation error',
-        details: error.errors
-      });
-      return;
-    }
-
     res.status(500).json({
       error: 'Login failed',
       message: 'An error occurred during login'
@@ -274,8 +247,16 @@ export async function logout(req: Request, res: Response): Promise<void> {
  */
 export async function refresh(req: Request, res: Response): Promise<void> {
   try {
-    // Validate input
-    const { refreshToken } = refreshSchema.parse(req.body);
+    // Input is already validated by middleware (through route validation)
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      res.status(400).json({
+        error: 'Validation error',
+        message: 'Refresh token is required'
+      });
+      return;
+    }
 
     // Refresh tokens
     const tokens = await refreshAccessToken(refreshToken, true);
@@ -289,14 +270,6 @@ export async function refresh(req: Request, res: Response): Promise<void> {
   } catch (error: any) {
     logger.error('Token refresh error:', error);
     
-    if (error instanceof z.ZodError) {
-      res.status(400).json({
-        error: 'Validation error',
-        details: error.errors
-      });
-      return;
-    }
-
     if (error.name === 'TokenInvalidError' || error.name === 'TokenExpiredError') {
       res.status(401).json({
         error: 'Invalid refresh token',
@@ -373,11 +346,8 @@ export async function updateProfile(req: Request, res: Response): Promise<void> 
       return;
     }
 
-    const updateSchema = z.object({
-      email: z.string().email('Invalid email format').optional()
-    });
-
-    const updateData = updateSchema.parse(req.body);
+    // Input is already validated by middleware
+    const updateData = req.body;
 
     // Check if email already exists if updating email
     if (updateData.email) {
@@ -419,14 +389,6 @@ export async function updateProfile(req: Request, res: Response): Promise<void> 
   } catch (error: any) {
     logger.error('Update profile error:', error);
     
-    if (error instanceof z.ZodError) {
-      res.status(400).json({
-        error: 'Validation error',
-        details: error.errors
-      });
-      return;
-    }
-
     res.status(500).json({
       error: 'Profile update failed',
       message: 'An error occurred while updating profile'
