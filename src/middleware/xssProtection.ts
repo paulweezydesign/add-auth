@@ -720,7 +720,7 @@ export const advancedCSP = (options: { nonce?: string; reportUri?: string; enfor
     
     const directives = [
       "default-src 'self'",
-      `script-src 'self' 'nonce-${cspNonce}' 'strict-dynamic'",
+      `script-src 'self' 'nonce-${cspNonce}' 'strict-dynamic'`,
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https:",
       "font-src 'self' data:",
