@@ -26,8 +26,8 @@ Created a comprehensive library entry point that exports:
 - XSS protection
 - SQL injection prevention
 - Input validation and sanitization
-- Authentication middleware (requireAuth, optionalAuth)
-- RBAC middleware (requireRole, requirePermission, etc.)
+- Authentication middleware (authenticateToken, optionalAuth from auth; requireAuth from rbac)
+- RBAC middleware (requireAuth, requireRole, requirePermission, etc.)
 - Error handlers
 - Localization middleware
 
@@ -226,7 +226,7 @@ app.get('/admin', requireAuth, requireRole('admin'), (req, res) => {
    - Database configuration
    - Optional: Redis, OAuth, Email service configs
 
-3. **Session Middleware:** The `sessionMiddleware` export requires Redis initialization before import. Users should initialize Redis first or import it directly from the specific module if needed.
+3. **Session Middleware:** The `sessionMiddleware` is not currently exported from the main library entry point (src/lib.ts) because it requires Redis initialization before import. Users who need session middleware should import it directly: `import { sessionMiddleware } from '@paulweezydesign/add-auth/dist/middleware/session';` and ensure Redis is initialized first.
 
 4. **TypeScript Compilation:** The library itself (src/lib.ts and exported modules) compiles successfully. Some server-specific files (app.ts, controllers) have compilation errors, but these don't affect the library exports.
 
