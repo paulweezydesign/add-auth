@@ -107,6 +107,6 @@ export { db } from './database/connection';
 export { SessionService } from './services/sessionService';
 
 /**
- * Re-export common middleware stacks for easy use
+ * Re-export security configuration helpers
  */
-export { securityMiddleware, securityConfigs, applySecurityMiddleware, securityHealthCheck } from './middleware/index';
+export { securityConfigs } from './middleware/index';
