@@ -4,8 +4,62 @@
  * Exports all reusable components for consumption in other applications
  */
 
-// Middleware exports
-export * from './middleware';
+// Middleware exports - Import specific middleware to avoid loading issues
+export { 
+  rateLimiters,
+  createCustomRateLimiter,
+  createUserRateLimiter,
+  rateLimiterHealthCheck,
+  closeRedisConnection,
+  redisClient
+} from './middleware/rateLimiter';
+export {
+  generateCSRFToken,
+  validateCSRFToken,
+  generateCSRFMiddleware,
+  validateCSRFMiddleware,
+  getCSRFTokenEndpoint,
+  cleanupExpiredCSRFTokens,
+  csrfProtection
+} from './middleware/csrfProtection';
+export {
+  validate,
+  validateBody,
+  validateQuery,
+  validateParams,
+  validateHeaders,
+  sanitizeInput,
+  validateAndSanitize,
+  validationSchemas,
+  isValidEmail,
+  isStrongPassword
+} from './middleware/validation';
+export {
+  sanitizeString,
+  sanitizeObject,
+  xssProtection,
+  strictXSSProtection,
+  xssProtectFields,
+  contentSecurityPolicy,
+  escapeHtml,
+  sanitizeUrl,
+  safeJsonParse,
+  detectXSS,
+  xssDetection
+} from './middleware/xssProtection';
+export {
+  sqlInjectionPrevention,
+  sqlInjectionSanitization,
+  sqlInjectionDetectionFields,
+  detectSQLInjection,
+  sanitizeSQLInput,
+  sanitizeObjectSQL,
+  createParameterizedQuery,
+  buildSafeQuery,
+  validateIdentifier,
+  escapeIdentifier
+} from './middleware/sqlInjectionPrevention';
+
 export { authenticateToken, optionalAuth } from './middleware/auth';
 export { 
   requireAuth,
@@ -20,7 +74,9 @@ export {
   getUserRoles,
   getUserPermissions
 } from './middleware/rbac';
-export { sessionMiddleware } from './middleware/session';
+// Note: sessionMiddleware requires Redis initialization before import
+// Users should import directly: import { sessionMiddleware } from '@paulweezydesign/add-auth/dist/middleware/session';
+// export { sessionMiddleware } from './middleware/session';
 export { 
   globalErrorHandler, 
   notFoundHandler, 
