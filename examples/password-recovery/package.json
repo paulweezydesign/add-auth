@@ -1,0 +1,24 @@
+{
+  "name": "password-recovery-example",
+  "version": "1.0.0",
+  "description": "Password Recovery Example with Email Tokens",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "keywords": ["password-recovery", "password-reset", "email", "example"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "dotenv": "^16.4.5",
+    "express": "^4.18.3",
+    "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^7.0.4",
+    "pg": "^8.11.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
+  }
+}
