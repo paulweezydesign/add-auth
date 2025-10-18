@@ -3,7 +3,7 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Strategy as GitHubStrategy } from 'passport-github2';
 import { UserModel } from '../models/User';
 import { RoleModel } from '../models/Role';
-import { appConfig } from './index';
+import { appConfig } from '.';
 import { logger } from '../utils/logger';
 
 // Serialize user for session

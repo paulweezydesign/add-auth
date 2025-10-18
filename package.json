@@ -3,13 +3,37 @@
   "version": "1.0.0",
   "description": "Authentication system with Node.js, TypeScript, and PostgreSQL",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "examples",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/components/react/index.d.ts",
+      "require": "./dist/components/react/index.js",
+      "default": "./dist/components/react/index.js"
+    },
+    "./vanilla": {
+      "types": "./dist/components/vanilla/index.d.ts",
+      "require": "./dist/components/vanilla/index.js",
+      "default": "./dist/components/vanilla/index.js"
+    }
+  },
+  "sideEffects": false,
   "scripts": {
-    "build": "./node_modules/.bin/tsc || npx -p typescript tsc",
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "build": "rm -rf dist && (./node_modules/.bin/tsc -p tsconfig.build.json || npx -p typescript tsc -p tsconfig.build.json)",
+    "dev": "ts-node-dev --respawn --transpile-only src/app.ts",
     "start": "node dist/index.js",
     "migrate": "ts-node src/database/migrate.ts",
     "migrate:rollback": "ts-node src/database/rollback.ts",
-    "test": "jest",
+    "test": "jest --runInBand",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix"
   },
@@ -21,7 +45,16 @@
   ],
   "author": "",
   "license": "MIT",
+  "peerDependencies": {
+    "react": "^17.0.0 || ^18.0.0",
+    "react-dom": "^17.0.0 || ^18.0.0"
+  },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.4.2",
+    "@testing-library/react": "^14.1.2",
+    "@types/jest": "^29.5.12",
+    "@types/react": "^18.2.48",
+    "@types/react-dom": "^18.2.18",
     "@types/bcrypt": "^5.0.2",
     "@types/connect-redis": "^0.0.23",
     "@types/cookie-parser": "^1.4.9",
@@ -37,8 +70,12 @@
     "@typescript-eslint/parser": "^7.3.1",
     "eslint": "^8.57.0",
     "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
+    "ts-jest": "^29.1.1",
     "typescript": "^5.4.3"
   },
   "dependencies": {
