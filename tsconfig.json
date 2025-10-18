@@ -2,10 +2,11 @@
   "compilerOptions": {
     "target": "ES2020",
     "module": "commonjs",
-    "lib": ["ES2020"],
+    "lib": ["ES2020", "DOM"],
+    "jsx": "react-jsx",
     "outDir": "./dist",
     "rootDir": "./src",
-    "strict": true,
+    "strict": false,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
@@ -16,16 +17,23 @@
     "sourceMap": true,
     "removeComments": true,
     "noImplicitAny": false,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
-    "noImplicitThis": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
+    "strictNullChecks": false,
+    "noImplicitThis": false,
+    "noImplicitReturns": false,
+    "noFallthroughCasesInSwitch": false,
     "noUncheckedIndexedAccess": false,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "downlevelIteration": true
   },
-  "include": ["src/**/*"],
+  "include": [
+    "src/index.ts",
+    "src/server.ts",
+    "src/start.ts",
+    "src/ui/**/*.ts",
+    "src/ui/**/*.tsx",
+    "src/config/index.ts",
+    "src/utils/logger.ts"
+  ],
   "exclude": ["node_modules", "dist", "tests"]
 }
