@@ -275,7 +275,7 @@ export const createRegistrationForm = ({
       return;
     }
 
-    const payload: RegistrationPayload = {
+    const registrationPayload: RegistrationPayload = {
       email: emailInput.value,
       password: passwordInput.value,
       confirmPassword: confirmPasswordInput.value,
