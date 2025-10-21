@@ -154,7 +154,7 @@ export const createLoginForm = ({
     submitButton.disabled = true;
     submitButton.textContent = 'Loading…';
 
-    const payload: LoginCredentials = {
+    const loginCredentials: LoginCredentials = {
       email: emailInput.value,
       password: passwordInput.value,
       rememberMe: showRememberMe ? rememberInput.checked : undefined,
