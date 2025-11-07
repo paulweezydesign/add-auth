@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../utils/logger';
 import { redisClient } from '../middleware/rateLimiter';
 import { PasswordSecurityManager } from './password-security';
+import { AuthUtils } from '../utils/auth';
 
 /**
  * Password reset token interface
@@ -205,12 +206,12 @@ export class PasswordResetManager {
   /**
    * Use a password reset token
    */
-  async usePasswordResetToken(token: string, newPassword: string): Promise<boolean> {
+  async usePasswordResetToken(token: string, newPassword: string): Promise<string | null> {
     try {
       const tokenData = await this.validatePasswordResetToken(token);
       
       if (!tokenData) {
-        return false;
+        return null;
       }
 
       // Validate password strength if required
@@ -231,10 +232,7 @@ export class PasswordResetManager {
       }
 
       // Hash the new password
-      const hashedPassword = await this.passwordSecurity.hashPassword(
-        tokenData.userId,
-        newPassword
-      );
+      const hashedPassword = await AuthUtils.hashPassword(newPassword);
 
       // Mark token as used
       tokenData.isUsed = true;
@@ -252,7 +250,7 @@ export class PasswordResetManager {
         email: tokenData.email
       });
 
-      return true;
+      return hashedPassword;
     } catch (error) {
       logger.error('Failed to use password reset token:', error);
       throw error;

@@ -8,6 +8,7 @@ import { logger } from '../utils/logger';
 import { passwordResetManager } from '../security/passwordReset';
 import { emailService } from '../utils/emailService';
 import { db } from '../database/connection';
+import { UserStatus } from '../types/user';
 
 /**
  * Request password reset
@@ -19,8 +20,13 @@ export const requestPasswordReset = async (req: Request, res: Response) => {
     const userAgent = req.get('user-agent');
 
     // Check if user exists
-    const userQuery = 'SELECT id, email, username FROM users WHERE email = $1 AND is_active = true';
-    const userResult = await db.query(userQuery, [email]);
+    const userQuery = `
+      SELECT id, email
+      FROM users
+      WHERE email = $1 AND status = $2
+    `;
+    const normalizedEmail = email.trim().toLowerCase();
+    const userResult = await db.query(userQuery, [normalizedEmail, UserStatus.ACTIVE]);
 
     if (userResult.rows.length === 0) {
       // Don't reveal if user exists or not for security
@@ -76,7 +82,7 @@ export const requestPasswordReset = async (req: Request, res: Response) => {
     });
   } catch (error) {
     logger.error('Password reset request failed:', error);
-    
+
     if (error instanceof Error && error.message.includes('Too many')) {
       return res.status(429).json({
         success: false,
@@ -118,8 +124,12 @@ export const verifyPasswordResetToken = async (req: Request, res: Response) => {
     }
 
     // Get user information
-    const userQuery = 'SELECT id, email, username FROM users WHERE id = $1';
-    const userResult = await db.query(userQuery, [tokenData.userId]);
+    const userQuery = `
+      SELECT id, email
+      FROM users
+      WHERE id = $1 AND status != $2
+    `;
+    const userResult = await db.query(userQuery, [tokenData.userId, UserStatus.DELETED]);
 
     if (userResult.rows.length === 0) {
       return res.status(400).json({
@@ -175,8 +185,12 @@ export const resetPassword = async (req: Request, res: Response) => {
     }
 
     // Get user information
-    const userQuery = 'SELECT id, email, username FROM users WHERE id = $1';
-    const userResult = await db.query(userQuery, [tokenData.userId]);
+    const userQuery = `
+      SELECT id, email
+      FROM users
+      WHERE id = $1 AND status != $2
+    `;
+    const userResult = await db.query(userQuery, [tokenData.userId, UserStatus.DELETED]);
 
     if (userResult.rows.length === 0) {
       return res.status(400).json({
@@ -188,9 +202,9 @@ export const resetPassword = async (req: Request, res: Response) => {
     const user = userResult.rows[0];
 
     // Use the password reset token (this will validate password strength)
-    const success = await passwordResetManager.usePasswordResetToken(token, password);
+    const hashedPassword = await passwordResetManager.usePasswordResetToken(token, password);
 
-    if (!success) {
+    if (!hashedPassword) {
       return res.status(400).json({
         success: false,
         error: 'Failed to reset password'
@@ -199,7 +213,7 @@ export const resetPassword = async (req: Request, res: Response) => {
 
     // Update password in database
     const updateQuery = 'UPDATE users SET password_hash = $1, password_changed_at = NOW() WHERE id = $2';
-    await db.query(updateQuery, [password, user.id]); // Note: This should be hashed in production
+    await db.query(updateQuery, [hashedPassword, user.id]);
 
     // Revoke all active sessions for this user
     const revokeSessionsQuery = 'DELETE FROM sessions WHERE user_id = $1';

@@ -108,9 +108,13 @@ export class AuthUtils {
   /**
    * Calculate session expiration time
    */
-  static calculateSessionExpiration(): Date {
+  static calculateSessionExpiration(rememberMe = false): Date {
     const now = new Date();
-    return new Date(now.getTime() + appConfig.security.sessionTimeout);
+    const baseTimeout = appConfig.security.sessionTimeout;
+    const rememberMeTimeout = baseTimeout * 7;
+    const effectiveTimeout = rememberMe ? rememberMeTimeout : baseTimeout;
+
+    return new Date(now.getTime() + effectiveTimeout);
   }
 
   /**
