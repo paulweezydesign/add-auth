@@ -188,9 +188,9 @@ export const resetPassword = async (req: Request, res: Response) => {
     const user = userResult.rows[0];
 
     // Use the password reset token (this will validate password strength)
-    const success = await passwordResetManager.usePasswordResetToken(token, password);
+    const hashedPassword = await passwordResetManager.usePasswordResetToken(token, password);
 
-    if (!success) {
+    if (!hashedPassword) {
       return res.status(400).json({
         success: false,
         error: 'Failed to reset password'
@@ -199,7 +199,7 @@ export const resetPassword = async (req: Request, res: Response) => {
 
     // Update password in database
     const updateQuery = 'UPDATE users SET password_hash = $1, password_changed_at = NOW() WHERE id = $2';
-    await db.query(updateQuery, [password, user.id]); // Note: This should be hashed in production
+    await db.query(updateQuery, [hashedPassword, user.id]);
 
     // Revoke all active sessions for this user
     const revokeSessionsQuery = 'DELETE FROM sessions WHERE user_id = $1';

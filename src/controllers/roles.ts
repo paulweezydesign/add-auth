@@ -179,19 +179,20 @@ export class RolesController {
         return;
       }
 
-      // Check if name is being changed and already exists
-      if (name && name !== existingRole.name) {
-        const roleWithSameName = await RoleModel.findByName(name);
-        if (roleWithSameName) {
-          res.status(409).json({
-            success: false,
-            error: 'Role name already exists',
-            message: 'A role with this name already exists'
-          });
+        // Check if name is being changed and already exists
+        if (name && name !== existingRole.name) {
+          const roleWithSameName = await RoleModel.findByName(name);
+          if (roleWithSameName) {
+            res.status(409).json({
+              success: false,
+              error: 'Role name already exists',
+              message: 'A role with this name already exists'
+            });
+            return;
+          }
         }
-      }
 
-      // Update the role
+        // Update the role
       const updatedRole = await RoleModel.update(id, {
         name,
         description,

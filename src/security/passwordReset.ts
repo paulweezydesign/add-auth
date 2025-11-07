@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../utils/logger';
 import { redisClient } from '../middleware/rateLimiter';
 import { PasswordSecurityManager } from './password-security';
+import { AuthUtils } from '../utils/auth';
 
 /**
  * Password reset token interface
@@ -205,20 +206,17 @@ export class PasswordResetManager {
   /**
    * Use a password reset token
    */
-  async usePasswordResetToken(token: string, newPassword: string): Promise<boolean> {
+  async usePasswordResetToken(token: string, newPassword: string): Promise<string | null> {
     try {
       const tokenData = await this.validatePasswordResetToken(token);
       
       if (!tokenData) {
-        return false;
+        return null;
       }
 
       // Validate password strength if required
       if (this.config.requireStrongPassword) {
-        const validation = await this.passwordSecurity.validatePassword(
-          tokenData.userId,
-          newPassword
-        );
+        const validation = this.passwordSecurity.validatePassword(newPassword);
         
         if (!validation.isValid) {
           logger.warn('Password reset failed - weak password', {
@@ -231,20 +229,15 @@ export class PasswordResetManager {
       }
 
       // Hash the new password
-      const hashedPassword = await this.passwordSecurity.hashPassword(
-        tokenData.userId,
-        newPassword
-      );
+      const hashedPassword = await AuthUtils.hashPassword(newPassword);
 
       // Mark token as used
       tokenData.isUsed = true;
       const hashedToken = this.hashToken(token);
       const key = `password-reset:${hashedToken}`;
-      await redisClient.setex(
-        key,
-        Math.floor(this.config.tokenExpiry / 1000),
-        JSON.stringify(tokenData)
-      );
+      const expiresInMs = new Date(tokenData.expiresAt).getTime() - Date.now();
+      const remainingTtlSeconds = Math.max(1, Math.floor(expiresInMs / 1000));
+      await redisClient.setex(key, remainingTtlSeconds, JSON.stringify(tokenData));
 
       logger.info('Password reset token used successfully', {
         tokenId: tokenData.id,
@@ -252,7 +245,7 @@ export class PasswordResetManager {
         email: tokenData.email
       });
 
-      return true;
+      return hashedPassword;
     } catch (error) {
       logger.error('Failed to use password reset token:', error);
       throw error;
