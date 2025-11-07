@@ -500,30 +500,41 @@ export class SessionService {
       const redis = getRedisClient();
       let cleanupCount = 0;
 
-      // Get all session keys
-      const sessionKeys = await redis.keys(`${this.SESSION_PREFIX}*`);
-      
-      for (const key of sessionKeys) {
-        const ttl = await redis.ttl(key);
-        if (ttl === -2) { // Key doesn't exist
-          cleanupCount++;
-        } else if (ttl === -1) { // Key exists but has no expiry
-          await redis.del(key);
-          cleanupCount++;
-        }
-      }
-
-      // Also cleanup user session lists
-      const userSessionKeys = await redis.keys(`${this.USER_SESSIONS_PREFIX}*`);
-      for (const key of userSessionKeys) {
-        const sessionIds = await redis.sMembers(key);
-        for (const sessionId of sessionIds) {
-          const sessionExists = await redis.exists(`${this.SESSION_PREFIX}${sessionId}`);
-          if (!sessionExists) {
-            await redis.sRem(key, sessionId);
+      // Use SCAN instead of KEYS for non-blocking iteration
+      let cursor = '0';
+      do {
+        const result = await redis.scan(cursor, 'MATCH', `${this.SESSION_PREFIX}*`, 'COUNT', 100);
+        cursor = result[0];
+        const sessionKeys = result[1];
+        
+        for (const key of sessionKeys) {
+          const ttl = await redis.ttl(key);
+          if (ttl === -2) { // Key doesn't exist
+            cleanupCount++;
+          } else if (ttl === -1) { // Key exists but has no expiry
+            await redis.del(key);
+            cleanupCount++;
           }
         }
-      }
+      } while (cursor !== '0');
+
+      // Also cleanup user session lists using SCAN
+      cursor = '0';
+      do {
+        const result = await redis.scan(cursor, 'MATCH', `${this.USER_SESSIONS_PREFIX}*`, 'COUNT', 100);
+        cursor = result[0];
+        const userSessionKeys = result[1];
+        
+        for (const key of userSessionKeys) {
+          const sessionIds = await redis.sMembers(key);
+          for (const sessionId of sessionIds) {
+            const sessionExists = await redis.exists(`${this.SESSION_PREFIX}${sessionId}`);
+            if (!sessionExists) {
+              await redis.sRem(key, sessionId);
+            }
+          }
+        }
+      } while (cursor !== '0');
 
       logger.info('Cleaned up expired sessions', { cleanupCount });
       return cleanupCount;
@@ -543,23 +554,32 @@ export class SessionService {
   }> {
     try {
       const redis = getRedisClient();
-      const sessionKeys = await redis.keys(`${this.SESSION_PREFIX}*`);
       const userCounts: Record<string, number> = {};
       let activeSessions = 0;
+      let totalSessions = 0;
 
-      for (const key of sessionKeys) {
-        const sessionData = await redis.get(key);
-        if (sessionData) {
-          const session: RedisSession = JSON.parse(sessionData);
-          if (session.is_active && new Date(session.expires_at) > new Date()) {
-            activeSessions++;
-            userCounts[session.user_id] = (userCounts[session.user_id] || 0) + 1;
+      // Use SCAN instead of KEYS for non-blocking iteration
+      let cursor = '0';
+      do {
+        const result = await redis.scan(cursor, 'MATCH', `${this.SESSION_PREFIX}*`, 'COUNT', 100);
+        cursor = result[0];
+        const sessionKeys = result[1];
+        totalSessions += sessionKeys.length;
+
+        for (const key of sessionKeys) {
+          const sessionData = await redis.get(key);
+          if (sessionData) {
+            const session: RedisSession = JSON.parse(sessionData);
+            if (session.is_active && new Date(session.expires_at) > new Date()) {
+              activeSessions++;
+              userCounts[session.user_id] = (userCounts[session.user_id] || 0) + 1;
+            }
           }
         }
-      }
+      } while (cursor !== '0');
 
       return {
-        totalSessions: sessionKeys.length,
+        totalSessions,
         activeSessions,
         userCounts,
       };

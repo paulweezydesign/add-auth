@@ -172,7 +172,6 @@ export class AuthUtils {
    */
   static getClientIp(req: any): string {
     return req.ip || 
-           req.connection?.remoteAddress || 
            req.socket?.remoteAddress ||
            req.headers['x-forwarded-for']?.split(',')[0] ||
            req.headers['x-real-ip'] ||

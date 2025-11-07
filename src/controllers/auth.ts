@@ -419,7 +419,9 @@ export async function updateProfile(req: Request, res: Response): Promise<void> 
 
     // Check if email already exists if updating email
     if (updateData.email) {
-      const existingUser = await UserModel.findByEmail(updateData.email);
+      // Normalize email to prevent duplicates with different casing
+      const normalizedEmail = updateData.email.toLowerCase().trim();
+      const existingUser = await UserModel.findByEmail(normalizedEmail);
       if (existingUser && existingUser.id !== userId) {
         res.status(409).json({
           error: 'Email already exists',
@@ -427,6 +429,8 @@ export async function updateProfile(req: Request, res: Response): Promise<void> 
         });
         return;
       }
+      // Update the email in updateData with normalized version
+      updateData.email = normalizedEmail;
     }
 
     // Update user

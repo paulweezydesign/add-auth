@@ -51,8 +51,8 @@ export const rateLimiters = {
     standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
     legacyHeaders: false, // Disable the `X-RateLimit-*` headers
     keyGenerator: (req: Request) => {
-      // Use IP address as key, with fallback to connection info
-      return req.ip || req.connection.remoteAddress || 'unknown';
+      // Use IP address as key, with fallback to socket info
+      return req.ip || req.socket.remoteAddress || 'unknown';
     },
     handler: (req: Request, res: Response) => {
       logger.warn(`Rate limit exceeded for IP: ${req.ip}`, {
@@ -83,7 +83,7 @@ export const rateLimiters = {
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req: Request) => {
-      return `auth:${req.ip || req.connection.remoteAddress || 'unknown'}`;
+      return `auth:${req.ip || req.socket.remoteAddress || 'unknown'}`;
     },
     handler: (req: Request, res: Response) => {
       logger.warn(`Auth rate limit exceeded for IP: ${req.ip}`, {
@@ -114,7 +114,7 @@ export const rateLimiters = {
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req: Request) => {
-      return `password-reset:${req.ip || req.connection.remoteAddress || 'unknown'}`;
+      return `password-reset:${req.ip || req.socket.remoteAddress || 'unknown'}`;
     },
     handler: (req: Request, res: Response) => {
       logger.warn(`Password reset rate limit exceeded for IP: ${req.ip}`, {
@@ -145,7 +145,7 @@ export const rateLimiters = {
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req: Request) => {
-      return `registration:${req.ip || req.connection.remoteAddress || 'unknown'}`;
+      return `registration:${req.ip || req.socket.remoteAddress || 'unknown'}`;
     },
     handler: (req: Request, res: Response) => {
       logger.warn(`Registration rate limit exceeded for IP: ${req.ip}`, {
@@ -186,7 +186,7 @@ export const createCustomRateLimiter = (options: {
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req: Request) => {
-      return `${options.keyPrefix}:${req.ip || req.connection.remoteAddress || 'unknown'}`;
+      return `${options.keyPrefix}:${req.ip || req.socket.remoteAddress || 'unknown'}`;
     },
     handler: (req: Request, res: Response) => {
       logger.warn(`Rate limit exceeded for ${options.keyPrefix} from IP: ${req.ip}`, {
@@ -230,7 +230,7 @@ export const createUserRateLimiter = (options: {
     keyGenerator: (req: Request) => {
       // Use user ID if authenticated, otherwise fall back to IP
       const userId = (req as any).user?.id;
-      const key = userId || req.ip || req.connection.remoteAddress || 'unknown';
+      const key = userId || req.ip || req.socket.remoteAddress || 'unknown';
       return `${options.keyPrefix}:${key}`;
     },
     handler: (req: Request, res: Response) => {
