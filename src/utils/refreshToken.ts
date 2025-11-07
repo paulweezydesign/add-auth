@@ -22,6 +22,7 @@ import {
   getTokenId,
   isTokenExpired
 } from './jwt';
+import { logger } from './logger';
 
 // In-memory storage for refresh tokens (in production, use Redis or database)
 const refreshTokenStore = new Map<string, RefreshTokenData>();
@@ -160,11 +161,23 @@ export async function refreshAccessToken(
     let newRefreshToken = refreshToken;
     
     if (rotateRefreshToken) {
-      // Revoke the old refresh token
-      await revokeRefreshToken(refreshToken);
-      
-      // Generate new refresh token
-      newRefreshToken = await createRefreshToken(userPayload);
+      // Generate new refresh token FIRST before revoking the old one
+      // This ensures users don't lose their refresh token if creation fails
+      try {
+        newRefreshToken = await createRefreshToken(userPayload);
+        
+        // Only revoke the old token after successfully creating the new one
+        await revokeRefreshToken(refreshToken);
+      } catch (error) {
+        // If creating new token fails, keep the old one valid
+        // Log the error but don't revoke the original token
+        logger.error('Failed to create new refresh token during rotation', { error });
+        throw new JWTError(
+          'Failed to rotate refresh token',
+          'REFRESH_TOKEN_ROTATION_FAILED',
+          500
+        );
+      }
     }
 
     // Calculate expiration time in seconds (15 minutes)

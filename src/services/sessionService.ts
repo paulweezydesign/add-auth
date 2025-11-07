@@ -493,6 +493,40 @@ export class SessionService {
   }
 
   /**
+   * Helper method to scan Redis keys using SCAN instead of KEYS (non-blocking)
+   * Uses node-redis v4+ API with scanIterator for efficient key scanning
+   */
+  private static async scanKeys(redis: any, pattern: string): Promise<string[]> {
+    const keys: string[] = [];
+    
+    try {
+      // Use scanIterator for node-redis v4+ (non-blocking, cursor-based)
+      for await (const key of redis.scanIterator({
+        MATCH: pattern,
+        COUNT: 100 // Process 100 keys at a time
+      })) {
+        keys.push(key);
+      }
+    } catch (error) {
+      // Fallback to manual SCAN if scanIterator is not available
+      logger.warn('scanIterator not available, using manual SCAN', { error });
+      let cursor = 0;
+      
+      do {
+        const result = await redis.scan(cursor, {
+          MATCH: pattern,
+          COUNT: 100
+        });
+        cursor = typeof result === 'object' ? result.cursor : 0;
+        const resultKeys = typeof result === 'object' ? result.keys : result;
+        keys.push(...resultKeys);
+      } while (cursor !== 0);
+    }
+    
+    return keys;
+  }
+
+  /**
    * Cleanup expired sessions
    */
   static async cleanupExpiredSessions(): Promise<number> {
@@ -500,8 +534,8 @@ export class SessionService {
       const redis = getRedisClient();
       let cleanupCount = 0;
 
-      // Get all session keys
-      const sessionKeys = await redis.keys(`${this.SESSION_PREFIX}*`);
+      // Get all session keys using SCAN (non-blocking) instead of KEYS
+      const sessionKeys = await this.scanKeys(redis, `${this.SESSION_PREFIX}*`);
       
       for (const key of sessionKeys) {
         const ttl = await redis.ttl(key);
@@ -513,8 +547,8 @@ export class SessionService {
         }
       }
 
-      // Also cleanup user session lists
-      const userSessionKeys = await redis.keys(`${this.USER_SESSIONS_PREFIX}*`);
+      // Also cleanup user session lists using SCAN
+      const userSessionKeys = await this.scanKeys(redis, `${this.USER_SESSIONS_PREFIX}*`);
       for (const key of userSessionKeys) {
         const sessionIds = await redis.sMembers(key);
         for (const sessionId of sessionIds) {
@@ -543,7 +577,8 @@ export class SessionService {
   }> {
     try {
       const redis = getRedisClient();
-      const sessionKeys = await redis.keys(`${this.SESSION_PREFIX}*`);
+      // Use SCAN instead of KEYS for better performance (non-blocking)
+      const sessionKeys = await this.scanKeys(redis, `${this.SESSION_PREFIX}*`);
       const userCounts: Record<string, number> = {};
       let activeSessions = 0;
 

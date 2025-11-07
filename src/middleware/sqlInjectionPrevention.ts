@@ -131,8 +131,15 @@ export const detectSQLInjection = (input: string, config: SQLInjectionConfig = {
     patterns.push(...config.customPatterns);
   }
 
-  // URL decode the input first
-  const decodedInput = decodeURIComponent(input);
+  // URL decode the input first, with error handling for malformed encoding
+  let decodedInput: string;
+  try {
+    decodedInput = decodeURIComponent(input);
+  } catch (error) {
+    // If decoding fails (malformed percent encoding), use original input
+    // This prevents the middleware from crashing on invalid input
+    decodedInput = input;
+  }
   
   // Check against all patterns
   for (const pattern of patterns) {
