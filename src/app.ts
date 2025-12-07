@@ -7,12 +7,23 @@ import oauthRoutes from './routes/oauth';
 import { appConfig } from './config';
 import { logger } from './utils/logger';
 import { PERMISSIONS } from './utils/permissions';
+import { 
+  securityMiddleware, 
+  enhancedRateLimiters,
+  rateLimiters,
+  csrfProtection,
+  getCSRFTokenEndpoint,
+  securityHealthCheck
+} from './middleware';
 
 const app = express();
 
 // Basic middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// Apply basic security middleware globally
+app.use(securityMiddleware.basic);
 
 // Initialize Redis connection
 let redisInitialized = false;
@@ -48,13 +59,27 @@ app.use(passport.session());
 app.use('/auth', oauthRoutes);
 
 // Public routes
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'healthy', 
-    timestamp: new Date().toISOString(),
-    redis: redisInitialized ? 'connected' : 'disconnected',
-  });
+app.get('/health', async (req, res) => {
+  try {
+    const securityHealth = await securityHealthCheck();
+    res.json({ 
+      status: 'healthy', 
+      timestamp: new Date().toISOString(),
+      redis: redisInitialized ? 'connected' : 'disconnected',
+      security: securityHealth
+    });
+  } catch (error) {
+    logger.error('Health check failed:', error);
+    res.status(500).json({
+      status: 'unhealthy',
+      timestamp: new Date().toISOString(),
+      error: 'Security health check failed'
+    });
+  }
 });
+
+// CSRF token endpoint
+app.get('/csrf-token', getCSRFTokenEndpoint());
 
 app.get('/login', (req, res) => {
   res.json({ 
@@ -63,7 +88,115 @@ app.get('/login', (req, res) => {
       google: '/auth/google',
       github: '/auth/github',
     },
+    csrfToken: res.locals.csrfToken, // Available if CSRF middleware is applied
   });
+});
+
+// Demo authentication endpoints with security middleware
+app.post('/auth/login', securityMiddleware.login, async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    // Simulate login validation
+    if (!email || !password) {
+      return res.status(400).json({
+        error: 'Email and password are required',
+        message: 'Please provide both email and password'
+      });
+    }
+    
+    // In a real application, this would validate against the database
+    logger.info('Login attempt', { email, ip: req.ip });
+    
+    res.json({
+      message: 'Login endpoint with security middleware',
+      note: 'This is a demo endpoint - actual authentication logic would go here',
+      security: {
+        rateLimiting: 'Applied sliding window rate limiting',
+        csrfProtection: 'Applied CSRF validation',
+        inputSanitization: 'Applied XSS and SQL injection protection'
+      }
+    });
+  } catch (error) {
+    logger.error('Login error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Login failed'
+    });
+  }
+});
+
+app.post('/auth/register', securityMiddleware.registration, async (req, res) => {
+  try {
+    const { email, password, confirmPassword } = req.body;
+    
+    // Simulate registration validation
+    if (!email || !password || !confirmPassword) {
+      return res.status(400).json({
+        error: 'All fields are required',
+        message: 'Please provide email, password, and confirm password'
+      });
+    }
+    
+    if (password !== confirmPassword) {
+      return res.status(400).json({
+        error: 'Passwords do not match',
+        message: 'Password and confirm password must match'
+      });
+    }
+    
+    // In a real application, this would create user in database
+    logger.info('Registration attempt', { email, ip: req.ip });
+    
+    res.status(201).json({
+      message: 'Registration endpoint with security middleware',
+      note: 'This is a demo endpoint - actual registration logic would go here',
+      security: {
+        rateLimiting: 'Applied sliding window rate limiting for registrations',
+        csrfProtection: 'Applied CSRF validation',
+        inputSanitization: 'Applied XSS and SQL injection protection'
+      }
+    });
+  } catch (error) {
+    logger.error('Registration error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Registration failed'
+    });
+  }
+});
+
+app.post('/auth/password-reset', securityMiddleware.passwordReset, async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    // Simulate password reset validation
+    if (!email) {
+      return res.status(400).json({
+        error: 'Email is required',
+        message: 'Please provide your email address'
+      });
+    }
+    
+    // In a real application, this would send reset email
+    logger.info('Password reset attempt', { email, ip: req.ip });
+    
+    res.json({
+      message: 'Password reset endpoint with security middleware',
+      note: 'This is a demo endpoint - actual password reset logic would go here',
+      security: {
+        rateLimiting: 'Applied exponential backoff rate limiting',
+        csrfProtection: 'Applied CSRF validation',
+        inputSanitization: 'Applied XSS and SQL injection protection'
+      }
+    });
+  } catch (error) {
+    logger.error('Password reset error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Password reset failed'
+    });
+  }
 });
 
 // Protected routes examples
