@@ -72,17 +72,35 @@ export {
 export type { SQLInjectionConfig } from './sqlInjectionPrevention';
 
 /**
- * Combined security middleware stack
+ * Combined security middleware stacks
+ * Note: These are provided as examples. In your application, you can create
+ * similar middleware stacks by importing the individual middleware functions.
+ * 
+ * Example:
+ * ```typescript
+ * import { rateLimiters, csrfProtection, xssProtection, sqlInjectionPrevention, sanitizeInput } from '@paulweezydesign/add-auth';
+ * 
+ * const authStack = [
+ *   rateLimiters.auth,
+ *   csrfProtection(),
+ *   xssProtection(),
+ *   sqlInjectionPrevention(),
+ *   sanitizeInput('body')
+ * ];
+ * 
+ * app.post('/api/login', authStack, loginController);
+ * ```
  */
+
+// Commented out to avoid circular dependency issues in compiled code
+// Users should create these stacks in their own code using the exported middleware
+/*
 export const securityMiddleware = {
-  // Basic security stack
   basic: [
     rateLimiters.general,
     xssProtection(),
     sqlInjectionPrevention()
   ],
-
-  // Authentication security stack
   auth: [
     rateLimiters.auth,
     csrfProtection(),
@@ -90,8 +108,6 @@ export const securityMiddleware = {
     sqlInjectionPrevention(),
     sanitizeInput('body')
   ],
-
-  // Admin security stack
   admin: [
     rateLimiters.general,
     csrfProtection(),
@@ -100,8 +116,6 @@ export const securityMiddleware = {
     sanitizeInput('body'),
     sanitizeInput('query')
   ],
-
-  // Password reset security stack
   passwordReset: [
     rateLimiters.passwordReset,
     csrfProtection(),
@@ -109,8 +123,6 @@ export const securityMiddleware = {
     sqlInjectionPrevention(),
     sanitizeInput('body')
   ],
-
-  // Registration security stack
   registration: [
     rateLimiters.registration,
     csrfProtection(),
@@ -119,6 +131,7 @@ export const securityMiddleware = {
     sanitizeInput('body')
   ]
 };
+*/
 
 /**
  * Security configuration presets
@@ -193,7 +206,30 @@ export const securityConfigs = {
 
 /**
  * Apply security middleware based on environment
+ * 
+ * Note: This is a helper function that users can replicate in their own code
+ * using the individual middleware exports to avoid module loading issues.
+ * 
+ * Example:
+ * ```typescript
+ * import { rateLimiters, csrfProtection, xssProtection, sqlInjectionPrevention, sanitizeInput, securityConfigs } from '@paulweezydesign/add-auth';
+ * 
+ * function applySecurityMiddleware(environment = 'production') {
+ *   const config = securityConfigs[environment];
+ *   return [
+ *     rateLimiters.general,
+ *     csrfProtection(config.csrf),
+ *     xssProtection(config.xss),
+ *     sqlInjectionPrevention(config.sqlInjection),
+ *     sanitizeInput('body'),
+ *     sanitizeInput('query'),
+ *     sanitizeInput('params')
+ *   ];
+ * }
+ * ```
  */
+
+/*
 export const applySecurityMiddleware = (environment: 'production' | 'development' | 'testing' = 'production') => {
   const config = securityConfigs[environment];
   
@@ -207,10 +243,35 @@ export const applySecurityMiddleware = (environment: 'production' | 'development
     sanitizeInput('params')
   ];
 };
+*/
 
 /**
  * Health check for all security middleware
+ * 
+ * Note: This is a helper function that users can replicate in their own code
+ * using the individual middleware exports to avoid module loading issues.
+ * 
+ * Example:
+ * ```typescript
+ * import { redisClient, generateCSRFToken, validationSchemas, sanitizeString, detectSQLInjection } from '@paulweezydesign/add-auth';
+ * 
+ * async function securityHealthCheck() {
+ *   const results = { redis: false, csrf: false, validation: false, xss: false, sqlInjection: false };
+ *   
+ *   try {
+ *     await redisClient.ping();
+ *     results.redis = true;
+ *   } catch (error) {
+ *     results.redis = false;
+ *   }
+ *   
+ *   // ... more checks
+ *   return results;
+ * }
+ * ```
  */
+
+/*
 export const securityHealthCheck = async () => {
   const results = {
     redis: false,
@@ -265,21 +326,13 @@ export const securityHealthCheck = async () => {
 
   return results;
 };
+*/
 
+/**
+ * Default export with common utilities
+ * Note: Prefer named imports for better tree-shaking
+ */
 export default {
-  rateLimiters,
-  csrfProtection,
-  xssProtection,
-  sqlInjectionPrevention,
-  validation: {
-    validateBody,
-    validateQuery,
-    validateParams,
-    validateHeaders,
-    validationSchemas
-  },
-  securityMiddleware,
-  securityConfigs,
-  applySecurityMiddleware,
-  securityHealthCheck
+  // Individual exports are preferred over this default export
+  // Use: import { rateLimiters, csrfProtection } from '@paulweezydesign/add-auth';
 };

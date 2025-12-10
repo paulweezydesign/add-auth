@@ -1,33 +1,69 @@
 {
-  "name": "add-auth",
+  "name": "@paulweezydesign/add-auth",
   "version": "1.0.0",
-  "description": "Authentication system with Node.js, TypeScript, and PostgreSQL",
-  "main": "dist/index.js",
+  "description": "Comprehensive authentication and authorization library with RBAC, OAuth, sessions, and security middleware for Node.js applications",
+  "main": "dist/lib.js",
+  "types": "dist/lib.d.ts",
   "scripts": {
-    "build": "./node_modules/.bin/tsc || npx -p typescript tsc",
+    "build": "tsc",
+    "build:clean": "rm -rf dist && npm run build",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "start": "node dist/index.js",
     "migrate": "ts-node src/database/migrate.ts",
     "migrate:rollback": "ts-node src/database/rollback.ts",
     "test": "jest",
     "lint": "eslint src/**/*.ts",
-    "lint:fix": "eslint src/**/*.ts --fix"
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "prepublishOnly": "npm run build:clean"
   },
+  "files": [
+    "dist/**/*",
+    "src/**/*",
+    "README.md",
+    "LICENSE"
+  ],
   "keywords": [
     "authentication",
+    "authorization",
+    "rbac",
+    "role-based-access-control",
+    "oauth",
+    "session-management",
+    "security",
+    "middleware",
+    "express",
     "nodejs",
     "typescript",
-    "postgresql"
+    "postgresql",
+    "redis",
+    "jwt",
+    "password-reset",
+    "csrf-protection",
+    "xss-protection",
+    "sql-injection-prevention",
+    "rate-limiting",
+    "input-validation"
   ],
-  "author": "",
+  "author": "paulweezydesign",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/paulweezydesign/add-auth.git"
+  },
+  "bugs": {
+    "url": "https://github.com/paulweezydesign/add-auth/issues"
+  },
+  "homepage": "https://github.com/paulweezydesign/add-auth#readme",
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
     "@types/connect-redis": "^0.0.23",
     "@types/cookie-parser": "^1.4.9",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.21",
     "@types/express-session": "^1.18.2",
     "@types/jsonwebtoken": "^9.0.6",
     "@types/node": "^20.11.30",
+    "@types/nodemailer": "^6.4.17",
     "@types/passport": "^1.0.17",
     "@types/passport-github2": "^1.2.9",
     "@types/passport-google-oauth20": "^2.0.16",
@@ -41,9 +77,17 @@
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.4.3"
   },
+  "peerDependencies": {
+    "express": "^4.18.0",
+    "pg": "^8.11.0",
+    "redis": "^4.0.0 || ^5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "redis": {
+      "optional": true
+    }
+  },
   "dependencies": {
-    "@types/cors": "^2.8.19",
-    "@types/nodemailer": "^6.4.17",
     "bcrypt": "^5.1.1",
     "connect-redis": "^9.0.0",
     "cookie-parser": "^1.4.7",
