@@ -1,8 +1,8 @@
 import express from 'express';
 import { hashPassword, comparePassword, validatePassword } from '../utils/password.js';
-import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt.js';
+import { generateAccessToken } from '../utils/jwt.js';
 import { authenticateToken } from '../middleware/auth.js';
-import { validateRegistration, validateLogin, validateRefreshToken as validateRefresh } from '../middleware/validation.js';
+import { getUserRoles } from '../utils/permissions.js';
 import pool from '../utils/db.js';
 
 const router = express.Router();
@@ -11,9 +11,17 @@ const router = express.Router();
  * POST /api/auth/register
  * Register a new user
  */
-router.post('/register', validateRegistration, async (req, res) => {
+router.post('/register', async (req, res) => {
   try {
     const { email, password, username } = req.body;
+
+    if (!email || !password || !username) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation failed',
+        message: 'Email, password, and username are required',
+      });
+    }
 
     // Validate password strength
     const passwordCheck = validatePassword(password);
@@ -53,9 +61,24 @@ router.post('/register', validateRegistration, async (req, res) => {
 
     const user = result.rows[0];
 
-    // Generate tokens
-    const accessToken = generateAccessToken(user.id, user.email);
-    const refreshToken = generateRefreshToken(user.id, user.email);
+    // Assign default 'user' role if it exists
+    const defaultRole = await pool.query(
+      "SELECT id FROM roles WHERE name = 'user'"
+    );
+
+    if (defaultRole.rows.length > 0) {
+      await pool.query(
+        'INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+        [user.id, defaultRole.rows[0].id]
+      );
+    }
+
+    // Get user roles for token
+    const roles = await getUserRoles(user.id);
+    const roleNames = roles.map((r) => r.name);
+
+    // Generate token
+    const accessToken = generateAccessToken(user.id, user.email, roleNames);
 
     res.status(201).json({
       success: true,
@@ -65,10 +88,10 @@ router.post('/register', validateRegistration, async (req, res) => {
           id: user.id,
           email: user.email,
           username: user.username,
+          roles: roleNames,
           createdAt: user.created_at,
         },
         accessToken,
-        refreshToken,
       },
     });
   } catch (error) {
@@ -85,9 +108,17 @@ router.post('/register', validateRegistration, async (req, res) => {
  * POST /api/auth/login
  * Login user
  */
-router.post('/login', validateLogin, async (req, res) => {
+router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation failed',
+        message: 'Email and password are required',
+      });
+    }
 
     // Find user
     const result = await pool.query(
@@ -124,9 +155,12 @@ router.post('/login', validateLogin, async (req, res) => {
       });
     }
 
-    // Generate tokens
-    const accessToken = generateAccessToken(user.id, user.email);
-    const refreshToken = generateRefreshToken(user.id, user.email);
+    // Get user roles for token
+    const roles = await getUserRoles(user.id);
+    const roleNames = roles.map((r) => r.name);
+
+    // Generate token
+    const accessToken = generateAccessToken(user.id, user.email, roleNames);
 
     res.json({
       success: true,
@@ -136,9 +170,9 @@ router.post('/login', validateLogin, async (req, res) => {
           id: user.id,
           email: user.email,
           username: user.username,
+          roles: roleNames,
         },
         accessToken,
-        refreshToken,
       },
     });
   } catch (error) {
@@ -147,79 +181,6 @@ router.post('/login', validateLogin, async (req, res) => {
       success: false,
       error: 'Login failed',
       message: 'An error occurred during login',
-    });
-  }
-});
-
-/**
- * POST /api/auth/refresh
- * Refresh access token
- */
-router.post('/refresh', validateRefresh, async (req, res) => {
-  try {
-    const { refreshToken } = req.body;
-
-    // Verify refresh token
-    const decoded = verifyRefreshToken(refreshToken);
-
-    // Verify user still exists and is active
-    const result = await pool.query(
-      'SELECT id, email, status FROM users WHERE id = $1',
-      [decoded.userId]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid token',
-        message: 'User not found',
-      });
-    }
-
-    const user = result.rows[0];
-
-    if (user.status !== 'active') {
-      return res.status(403).json({
-        success: false,
-        error: 'Account inactive',
-        message: 'Your account is not active',
-      });
-    }
-
-    // Generate new tokens (token rotation)
-    const newAccessToken = generateAccessToken(user.id, user.email);
-    const newRefreshToken = generateRefreshToken(user.id, user.email);
-
-    res.json({
-      success: true,
-      message: 'Token refreshed successfully',
-      data: {
-        accessToken: newAccessToken,
-        refreshToken: newRefreshToken,
-      },
-    });
-  } catch (error) {
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({
-        success: false,
-        error: 'Token expired',
-        message: 'Refresh token has expired. Please login again.',
-      });
-    }
-
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid token',
-        message: 'Refresh token is invalid',
-      });
-    }
-
-    console.error('Token refresh error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Refresh failed',
-      message: 'An error occurred during token refresh',
     });
   }
 });
@@ -252,6 +213,12 @@ router.get('/me', authenticateToken, async (req, res) => {
           id: user.id,
           email: user.email,
           username: user.username,
+          roles: req.user.roles.map((r) => ({
+            id: r.id,
+            name: r.name,
+            description: r.description,
+          })),
+          permissions: req.user.permissions,
           createdAt: user.created_at,
           updatedAt: user.updated_at,
         },
@@ -263,32 +230,6 @@ router.get('/me', authenticateToken, async (req, res) => {
       success: false,
       error: 'Request failed',
       message: 'An error occurred while fetching user data',
-    });
-  }
-});
-
-/**
- * POST /api/auth/logout
- * Logout user (protected route)
- * Note: In a production app, you'd want to blacklist the token
- */
-router.post('/logout', authenticateToken, async (_req, res) => {
-  try {
-    // In a real application, you would:
-    // 1. Add the token to a blacklist (Redis recommended)
-    // 2. Set expiration to match token expiration
-    // 3. Check blacklist in authenticateToken middleware
-
-    res.json({
-      success: true,
-      message: 'Logout successful. Please discard your tokens.',
-    });
-  } catch (error) {
-    console.error('Logout error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Logout failed',
-      message: 'An error occurred during logout',
     });
   }
 });

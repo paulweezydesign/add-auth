@@ -2,7 +2,7 @@ import 'dotenv/config';
 import app from './app.js';
 import pool from './utils/db.js';
 
-const PORT = process.env.PORT ?? 3000;
+const PORT = process.env.PORT ?? 3004;
 
 // Start server
 const startServer = async () => {
@@ -14,7 +14,7 @@ const startServer = async () => {
     app.listen(PORT, () => {
       console.log(`
 ╔════════════════════════════════════════════════╗
-║   JWT Authentication Example Server            ║
+║   Password Recovery Example Server             ║
 ║                                                ║
 ║   Server running on: http://localhost:${PORT}   ║
 ║   Environment: ${process.env.NODE_ENV ?? 'development'}                   ║
@@ -22,9 +22,11 @@ const startServer = async () => {
 ║   API Endpoints:                               ║
 ║   POST /api/auth/register                      ║
 ║   POST /api/auth/login                         ║
-║   POST /api/auth/refresh                       ║
-║   POST /api/auth/logout                        ║
 ║   GET  /api/auth/me                            ║
+║   POST /api/auth/forgot-password               ║
+║   POST /api/auth/validate-reset-token          ║
+║   POST /api/auth/reset-password                ║
+║   POST /api/auth/change-password               ║
 ║                                                ║
 ║   Health check: http://localhost:${PORT}/health  ║
 ╚════════════════════════════════════════════════╝

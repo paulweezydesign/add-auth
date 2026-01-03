@@ -74,20 +74,3 @@ export const validateLogin = (req, res, next) => {
 
   next();
 };
-
-/**
- * Validate refresh token request
- */
-export const validateRefreshToken = (req, res, next) => {
-  const { refreshToken } = req.body;
-
-  if (!refreshToken) {
-    return res.status(400).json({
-      success: false,
-      error: 'Validation failed',
-      message: 'Refresh token is required',
-    });
-  }
-
-  next();
-};

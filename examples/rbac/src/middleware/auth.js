@@ -1,9 +1,10 @@
 import { verifyAccessToken } from '../utils/jwt.js';
+import { getUserPermissions, getUserRoles } from '../utils/permissions.js';
 
 /**
  * Middleware to authenticate JWT token
  */
-export const authenticateToken = (req, res, next) => {
+export const authenticateToken = async (req, res, next) => {
   try {
     // Get token from Authorization header
     const authHeader = req.headers.authorization;
@@ -20,10 +21,18 @@ export const authenticateToken = (req, res, next) => {
     // Verify token
     const decoded = verifyAccessToken(token);
 
+    // Fetch fresh permissions from database
+    const [permissions, roles] = await Promise.all([
+      getUserPermissions(decoded.userId),
+      getUserRoles(decoded.userId),
+    ]);
+
     // Attach user info to request
     req.user = {
       userId: decoded.userId,
       email: decoded.email,
+      permissions,
+      roles,
     };
 
     next();
@@ -32,7 +41,7 @@ export const authenticateToken = (req, res, next) => {
       return res.status(401).json({
         success: false,
         error: 'Token expired',
-        message: 'Your session has expired. Please login again or refresh your token.',
+        message: 'Your session has expired. Please login again.',
       });
     }
 
@@ -44,6 +53,7 @@ export const authenticateToken = (req, res, next) => {
       });
     }
 
+    console.error('Authentication error:', error);
     return res.status(500).json({
       success: false,
       error: 'Authentication error',

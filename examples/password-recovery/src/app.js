@@ -24,7 +24,7 @@ app.use('/api/auth', authRoutes);
 app.get('/health', (_req, res) => {
   res.json({
     success: true,
-    message: 'JWT Auth Example API is running',
+    message: 'Password Recovery Example API is running',
     timestamp: new Date().toISOString(),
   });
 });

@@ -2,6 +2,8 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import authRoutes from './routes/auth.js';
+import rolesRoutes from './routes/roles.js';
+import usersRoutes from './routes/users.js';
 
 const app = express();
 
@@ -19,12 +21,14 @@ app.use(cors({
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/roles', rolesRoutes);
+app.use('/api/users', usersRoutes);
 
 // Health check endpoint
 app.get('/health', (_req, res) => {
   res.json({
     success: true,
-    message: 'JWT Auth Example API is running',
+    message: 'RBAC Example API is running',
     timestamp: new Date().toISOString(),
   });
 });

@@ -2,7 +2,7 @@ import 'dotenv/config';
 import app from './app.js';
 import pool from './utils/db.js';
 
-const PORT = process.env.PORT ?? 3000;
+const PORT = process.env.PORT ?? 3003;
 
 // Start server
 const startServer = async () => {
@@ -14,17 +14,26 @@ const startServer = async () => {
     app.listen(PORT, () => {
       console.log(`
 ╔════════════════════════════════════════════════╗
-║   JWT Authentication Example Server            ║
+║   RBAC (Role-Based Access Control) Example     ║
 ║                                                ║
 ║   Server running on: http://localhost:${PORT}   ║
 ║   Environment: ${process.env.NODE_ENV ?? 'development'}                   ║
 ║                                                ║
-║   API Endpoints:                               ║
+║   Auth Endpoints:                              ║
 ║   POST /api/auth/register                      ║
 ║   POST /api/auth/login                         ║
-║   POST /api/auth/refresh                       ║
-║   POST /api/auth/logout                        ║
 ║   GET  /api/auth/me                            ║
+║                                                ║
+║   Role Endpoints:                              ║
+║   GET    /api/roles                            ║
+║   POST   /api/roles                            ║
+║   PUT    /api/roles/:id                        ║
+║   DELETE /api/roles/:id                        ║
+║   POST   /api/roles/assign                     ║
+║   DELETE /api/roles/assign/:userId/:roleId     ║
+║                                                ║
+║   User Endpoints:                              ║
+║   GET    /api/users/:id/roles                  ║
 ║                                                ║
 ║   Health check: http://localhost:${PORT}/health  ║
 ╚════════════════════════════════════════════════╝
