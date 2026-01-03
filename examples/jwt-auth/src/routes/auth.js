@@ -45,7 +45,7 @@ router.post('/register', validateRegistration, async (req, res) => {
 
     // Create user
     const result = await pool.query(
-      `INSERT INTO users (email, password, username, status) 
+      `INSERT INTO users (email, password_hash, username, status) 
        VALUES ($1, $2, $3, 'active') 
        RETURNING id, email, username, created_at`,
       [email.toLowerCase(), hashedPassword, username]
@@ -91,7 +91,7 @@ router.post('/login', validateLogin, async (req, res) => {
 
     // Find user
     const result = await pool.query(
-      'SELECT id, email, password, username, status FROM users WHERE email = $1',
+      'SELECT id, email, password_hash, username, status FROM users WHERE email = $1',
       [email.toLowerCase()]
     );
 
@@ -115,7 +115,7 @@ router.post('/login', validateLogin, async (req, res) => {
     }
 
     // Verify password
-    const isValidPassword = await comparePassword(password, user.password);
+    const isValidPassword = await comparePassword(password, user.password_hash);
     if (!isValidPassword) {
       return res.status(401).json({
         success: false,
