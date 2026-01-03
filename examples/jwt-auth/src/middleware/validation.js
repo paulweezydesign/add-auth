@@ -1,15 +1,15 @@
 /**
  * Validate email format
  */
-function isValidEmail(email) {
+const isValidEmail = (email) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
-}
+};
 
 /**
  * Validate registration input
  */
-function validateRegistration(req, res, next) {
+export const validateRegistration = (req, res, next) => {
   const { email, password, username } = req.body;
   const errors = [];
 
@@ -45,12 +45,12 @@ function validateRegistration(req, res, next) {
   }
 
   next();
-}
+};
 
 /**
  * Validate login input
  */
-function validateLogin(req, res, next) {
+export const validateLogin = (req, res, next) => {
   const { email, password } = req.body;
   const errors = [];
 
@@ -73,12 +73,12 @@ function validateLogin(req, res, next) {
   }
 
   next();
-}
+};
 
 /**
  * Validate refresh token request
  */
-function validateRefreshToken(req, res, next) {
+export const validateRefreshToken = (req, res, next) => {
   const { refreshToken } = req.body;
 
   if (!refreshToken) {
@@ -90,10 +90,4 @@ function validateRefreshToken(req, res, next) {
   }
 
   next();
-}
-
-module.exports = {
-  validateRegistration,
-  validateLogin,
-  validateRefreshToken
 };

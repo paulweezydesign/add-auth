@@ -1,24 +1,24 @@
-const bcrypt = require('bcrypt');
+import bcrypt from 'bcrypt';
 
 /**
  * Hash password using bcrypt
  */
-async function hashPassword(password) {
+export const hashPassword = async (password) => {
   const rounds = parseInt(process.env.BCRYPT_ROUNDS) || 12;
   return bcrypt.hash(password, rounds);
-}
+};
 
 /**
  * Compare password with hash
  */
-async function comparePassword(password, hash) {
+export const comparePassword = async (password, hash) => {
   return bcrypt.compare(password, hash);
-}
+};
 
 /**
  * Validate password strength
  */
-function validatePassword(password) {
+export const validatePassword = (password) => {
   const errors = [];
 
   if (password.length < 8) {
@@ -45,10 +45,4 @@ function validatePassword(password) {
     isValid: errors.length === 0,
     errors
   };
-}
-
-module.exports = {
-  hashPassword,
-  comparePassword,
-  validatePassword
 };

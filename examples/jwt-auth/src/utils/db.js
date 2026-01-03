@@ -1,4 +1,5 @@
-const { Pool } = require('pg');
+import pg from 'pg';
+const { Pool } = pg;
 
 // Create PostgreSQL connection pool
 const pool = new Pool({
@@ -20,4 +21,4 @@ pool.on('error', (err) => {
   process.exit(-1);
 });
 
-module.exports = pool;
+export default pool;

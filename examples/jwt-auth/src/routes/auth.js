@@ -1,9 +1,9 @@
-const express = require('express');
-const { hashPassword, comparePassword, validatePassword } = require('../utils/password');
-const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = require('../utils/jwt');
-const { authenticateToken } = require('../middleware/auth');
-const { validateRegistration, validateLogin, validateRefreshToken: validateRefresh } = require('../middleware/validation');
-const pool = require('../utils/db');
+import express from 'express';
+import { hashPassword, comparePassword, validatePassword } from '../utils/password.js';
+import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt.js';
+import { authenticateToken } from '../middleware/auth.js';
+import { validateRegistration, validateLogin, validateRefreshToken as validateRefresh } from '../middleware/validation.js';
+import pool from '../utils/db.js';
 
 const router = express.Router();
 
@@ -293,4 +293,4 @@ router.post('/logout', authenticateToken, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

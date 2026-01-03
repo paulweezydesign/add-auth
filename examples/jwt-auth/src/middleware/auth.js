@@ -1,9 +1,9 @@
-const { verifyAccessToken } = require('../utils/jwt');
+import { verifyAccessToken } from '../utils/jwt.js';
 
 /**
  * Middleware to authenticate JWT token
  */
-function authenticateToken(req, res, next) {
+export const authenticateToken = (req, res, next) => {
   try {
     // Get token from Authorization header
     const authHeader = req.headers['authorization'];
@@ -50,8 +50,4 @@ function authenticateToken(req, res, next) {
       message: 'An error occurred during authentication'
     });
   }
-}
-
-module.exports = {
-  authenticateToken
 };

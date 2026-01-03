@@ -1,6 +1,6 @@
-require('dotenv').config();
-const express = require('express');
-const authRoutes = require('./routes/auth');
+import 'dotenv/config';
+import express from 'express';
+import authRoutes from './routes/auth.js';
 
 const app = express();
 
@@ -52,4 +52,4 @@ app.use((err, req, res, next) => {
   });
 });
 
-module.exports = app;
+export default app;

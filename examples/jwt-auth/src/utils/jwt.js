@@ -1,9 +1,9 @@
-const jwt = require('jsonwebtoken');
+import jwt from 'jsonwebtoken';
 
 /**
  * Generate JWT access token
  */
-function generateAccessToken(userId, email) {
+export const generateAccessToken = (userId, email) => {
   return jwt.sign(
     { 
       userId, 
@@ -13,12 +13,12 @@ function generateAccessToken(userId, email) {
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
   );
-}
+};
 
 /**
  * Generate JWT refresh token
  */
-function generateRefreshToken(userId, email) {
+export const generateRefreshToken = (userId, email) => {
   return jwt.sign(
     { 
       userId, 
@@ -28,12 +28,12 @@ function generateRefreshToken(userId, email) {
     process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
   );
-}
+};
 
 /**
  * Verify access token
  */
-function verifyAccessToken(token) {
+export const verifyAccessToken = (token) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     if (decoded.type !== 'access') {
@@ -43,12 +43,12 @@ function verifyAccessToken(token) {
   } catch (error) {
     throw error;
   }
-}
+};
 
 /**
  * Verify refresh token
  */
-function verifyRefreshToken(token) {
+export const verifyRefreshToken = (token) => {
   try {
     const decoded = jwt.verify(
       token, 
@@ -61,11 +61,4 @@ function verifyRefreshToken(token) {
   } catch (error) {
     throw error;
   }
-}
-
-module.exports = {
-  generateAccessToken,
-  generateRefreshToken,
-  verifyAccessToken,
-  verifyRefreshToken
 };

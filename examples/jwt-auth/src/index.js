@@ -1,11 +1,11 @@
-require('dotenv').config();
-const app = require('./app');
-const pool = require('./utils/db');
+import 'dotenv/config';
+import app from './app.js';
+import pool from './utils/db.js';
 
 const PORT = process.env.PORT || 3000;
 
 // Start server
-async function startServer() {
+const startServer = async () => {
   try {
     // Test database connection
     await pool.query('SELECT NOW()');
@@ -34,7 +34,7 @@ async function startServer() {
     console.error('Failed to start server:', error);
     process.exit(1);
   }
-}
+};
 
 // Handle graceful shutdown
 process.on('SIGTERM', async () => {

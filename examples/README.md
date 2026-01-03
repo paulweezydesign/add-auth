@@ -74,6 +74,41 @@ Secure password reset and recovery flow.
 
 ---
 
+### 6. [Vanilla JavaScript Frontend](./vanilla-js-frontend/)
+Modern vanilla JavaScript frontend application using ES6+ modules and functional programming patterns.
+
+**Features:**
+- ES6+ modules
+- Functional programming patterns
+- Client-side routing
+- Token-based authentication
+- Automatic token refresh
+- Responsive design
+
+**Best for:** Learning modern JavaScript, lightweight SPAs, projects without frameworks
+
+**Technology:** Vanilla JavaScript, Vite, ES6+ modules
+
+---
+
+### 7. [React 19+ Frontend](./react-frontend/)
+Modern React 19+ frontend application using hooks, context API, and functional components.
+
+**Features:**
+- React 19+ with latest features
+- Functional components with hooks
+- Context API for state management
+- React Router for navigation
+- Custom hooks
+- Protected routes
+- Token-based authentication
+
+**Best for:** Modern React applications, component-based architectures, React ecosystem
+
+**Technology:** React 19+, React Router, Vite, Hooks
+
+---
+
 ## Quick Start
 
 Each example is self-contained and can be run independently. Follow these steps:
@@ -111,15 +146,18 @@ Each example is self-contained and can be run independently. Follow these steps:
 
 ## Project Structure
 
-Each example follows this structure:
+### Backend Examples Structure
+
+Each backend example follows this structure:
 
 ```
 example-name/
 ├── README.md              # Detailed example documentation
 ├── .env.example          # Environment variables template
-├── package.json          # Dependencies
+├── package.json          # Dependencies (ES modules)
 ├── src/
 │   ├── app.js           # Express application setup
+│   ├── index.js         # Server entry point
 │   ├── routes/          # API routes
 │   ├── middleware/      # Custom middleware
 │   └── utils/           # Utility functions
@@ -127,6 +165,37 @@ example-name/
 └── docs/
     ├── API.md          # API endpoint documentation
     └── SETUP.md        # Setup instructions
+```
+
+### Frontend Examples Structure
+
+Frontend examples follow modern structure:
+
+**Vanilla JavaScript:**
+```
+vanilla-js-frontend/
+├── src/
+│   ├── main.js          # Application entry
+│   ├── router.js        # Client-side router
+│   ├── services/       # API services
+│   ├── pages/          # Page components
+│   └── utils/          # Utilities
+├── index.html
+└── vite.config.js
+```
+
+**React:**
+```
+react-frontend/
+├── src/
+│   ├── main.jsx        # Application entry
+│   ├── App.jsx         # Main app component
+│   ├── contexts/       # React contexts
+│   ├── components/    # Reusable components
+│   ├── pages/         # Page components
+│   └── services/      # API services
+├── index.html
+└── vite.config.js
 ```
 
 ## Common Setup
@@ -179,15 +248,65 @@ Each example includes:
 
 Recommended order for learning:
 
+### Backend Examples
 1. **Start with JWT Authentication** - Understand the basics
 2. **Move to Session-Based** - Learn stateful authentication
 3. **Explore OAuth Social** - Implement third-party authentication
 4. **Study RBAC** - Add authorization and access control
 5. **Complete with Password Recovery** - Implement account recovery
 
+### Frontend Examples
+1. **Vanilla JavaScript Frontend** - Learn modern JavaScript patterns
+2. **React 19+ Frontend** - Build with React hooks and context API
+
+### Full Stack
+- Use backend examples (JWT Auth recommended) with frontend examples
+- Backend runs on port 3000, frontends proxy to it automatically
+
+## Modern JavaScript Patterns
+
+All examples use modern JavaScript best practices:
+
+### Backend Examples
+- ✅ ES6+ modules (`import`/`export`)
+- ✅ Arrow functions
+- ✅ Async/await
+- ✅ Destructuring
+- ✅ Template literals
+- ✅ Functional programming patterns
+- ✅ Const/let (no var)
+
+### Frontend Examples
+- ✅ ES6+ modules
+- ✅ Functional components (React)
+- ✅ Hooks (React)
+- ✅ Context API (React)
+- ✅ Modern CSS (CSS variables, flexbox)
+- ✅ Vite for fast development
+
 ## Integration
 
-These examples are designed to work with the main authentication system. You can:
+These examples are designed to work together:
+
+### Backend + Frontend
+
+1. **Start the backend** (e.g., JWT Auth example):
+   ```bash
+   cd examples/jwt-auth
+   npm install
+   npm start
+   ```
+
+2. **Start a frontend** (Vanilla JS or React):
+   ```bash
+   cd examples/vanilla-js-frontend  # or react-frontend
+   npm install
+   npm run dev
+   ```
+
+3. The frontend automatically proxies API requests to the backend.
+
+### Standalone Usage
 
 - Copy code patterns into your application
 - Use as reference implementations
