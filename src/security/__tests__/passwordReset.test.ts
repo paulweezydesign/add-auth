@@ -1,3 +1,4 @@
+import * as crypto from 'crypto';
 import { PasswordResetManager } from '../passwordReset';
 import { AuthUtils } from '../../utils/auth';
 import { redisClient } from '../../middleware/rateLimiter';
@@ -30,12 +31,15 @@ describe('PasswordResetManager.usePasswordResetToken', () => {
       cleanupInterval: 1000000
     });
 
+    const rawToken = 'raw-token';
+    const expectedHashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+
     const tokenData = {
       id: 'token-1',
       userId: 'user-1',
       email: 'test@example.com',
-      token: 'raw-token',
-      hashedToken: 'hashed-token',
+      token: rawToken,
+      hashedToken: expectedHashedToken,
       expiresAt: new Date(Date.now() + 1000),
       createdAt: new Date(),
       isUsed: false
@@ -44,11 +48,11 @@ describe('PasswordResetManager.usePasswordResetToken', () => {
     jest.spyOn(manager, 'validatePasswordResetToken').mockResolvedValue(tokenData);
     (AuthUtils.hashPassword as jest.Mock).mockResolvedValue('hashed-password');
 
-    const result = await manager.usePasswordResetToken('raw-token', 'NewPass123!');
+    const result = await manager.usePasswordResetToken(rawToken, 'NewPass123!');
 
     expect(result).toBe('hashed-password');
     expect(redisClient.setex).toHaveBeenCalledWith(
-      'password-reset:hashed-token',
+      `password-reset:${expectedHashedToken}`,
       expect.any(Number),
       expect.stringContaining('"isUsed":true')
     );
