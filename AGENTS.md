@@ -415,3 +415,41 @@ These commands make AI calls and may take up to a minute:
 ---
 
 _This guide ensures Claude Code has immediate access to Task Master's essential functionality for agentic development workflows._
+
+## Cursor Cloud specific instructions
+
+### Services overview
+
+This is a Node.js/TypeScript Express.js authentication library with an example API server. It requires:
+
+| Service | Purpose | Required |
+|---|---|---|
+| PostgreSQL 16 | Primary database (users, sessions, roles, audit logs) | Yes |
+| Redis 7 | Session store, rate limiting, CSRF tokens, token blacklisting | Yes (server starts without it but features degrade) |
+| Node.js 18+ | Runtime | Yes |
+
+### Starting services
+
+PostgreSQL and Redis must be started before running the application:
+
+```bash
+sudo pg_ctlcluster 16 main start
+sudo redis-server --daemonize yes
+```
+
+### Running the application
+
+```bash
+npm run dev   # Dev server with hot-reload (uses ts-node-dev --transpile-only)
+```
+
+The server listens on port 3000. See `package.json` for all available scripts.
+
+### Key caveats
+
+- **`DB_SSL` env var**: Zod's `z.coerce.boolean()` treats the string `"false"` as truthy. Either leave `DB_SSL` unset (defaults to `false`) or set it to an empty string. Do NOT set `DB_SSL=false`.
+- **TypeScript build (`npm run build`)**: The codebase has many pre-existing type errors. The dev server works because it uses `--transpile-only`. A clean `tsc` build will fail.
+- **ESLint config**: The `.eslintrc.json` extends value must be `plugin:@typescript-eslint/recommended` (not `@typescript-eslint/recommended`).
+- **Tests**: No test files exist yet. Run `npm test -- --passWithNoTests` to avoid a non-zero exit code.
+- **Database migrations**: Run `npx ts-node src/database/migrate.ts migrate` (the `npm run migrate` script does not pass the `migrate` subcommand argument).
+- **CSRF tokens**: All mutating API endpoints require a CSRF token. Fetch one from `GET /api/auth/csrf-token` first, then pass it via the `X-CSRF-Token` header with the session cookie.

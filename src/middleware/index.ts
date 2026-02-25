@@ -4,7 +4,7 @@
  */
 
 // Rate Limiting
-export {
+import {
   rateLimiters,
   createCustomRateLimiter,
   createUserRateLimiter,
@@ -12,9 +12,17 @@ export {
   closeRedisConnection,
   redisClient
 } from './rateLimiter';
+export {
+  rateLimiters,
+  createCustomRateLimiter,
+  createUserRateLimiter,
+  rateLimiterHealthCheck,
+  closeRedisConnection,
+  redisClient
+};
 
 // CSRF Protection
-export {
+import {
   generateCSRFToken,
   validateCSRFToken,
   generateCSRFMiddleware,
@@ -23,10 +31,19 @@ export {
   cleanupExpiredCSRFTokens,
   csrfProtection
 } from './csrfProtection';
+export {
+  generateCSRFToken,
+  validateCSRFToken,
+  generateCSRFMiddleware,
+  validateCSRFMiddleware,
+  getCSRFTokenEndpoint,
+  cleanupExpiredCSRFTokens,
+  csrfProtection
+};
 export type { CSRFConfig } from './csrfProtection';
 
 // Input Validation
-export {
+import {
   validate,
   validateBody,
   validateQuery,
@@ -38,10 +55,22 @@ export {
   isValidEmail,
   isStrongPassword
 } from './validation';
+export {
+  validate,
+  validateBody,
+  validateQuery,
+  validateParams,
+  validateHeaders,
+  sanitizeInput,
+  validateAndSanitize,
+  validationSchemas,
+  isValidEmail,
+  isStrongPassword
+};
 export type { ValidationTarget, ValidationOptions } from './validation';
 
 // XSS Protection
-export {
+import {
   sanitizeString,
   sanitizeObject,
   xssProtection,
@@ -54,10 +83,23 @@ export {
   detectXSS,
   xssDetection
 } from './xssProtection';
+export {
+  sanitizeString,
+  sanitizeObject,
+  xssProtection,
+  strictXSSProtection,
+  xssProtectFields,
+  contentSecurityPolicy,
+  escapeHtml,
+  sanitizeUrl,
+  safeJsonParse,
+  detectXSS,
+  xssDetection
+};
 export type { XSSProtectionConfig } from './xssProtection';
 
 // SQL Injection Prevention
-export {
+import {
   sqlInjectionPrevention,
   sqlInjectionSanitization,
   sqlInjectionDetectionFields,
@@ -69,6 +111,18 @@ export {
   validateIdentifier,
   escapeIdentifier
 } from './sqlInjectionPrevention';
+export {
+  sqlInjectionPrevention,
+  sqlInjectionSanitization,
+  sqlInjectionDetectionFields,
+  detectSQLInjection,
+  sanitizeSQLInput,
+  sanitizeObjectSQL,
+  createParameterizedQuery,
+  buildSafeQuery,
+  validateIdentifier,
+  escapeIdentifier
+};
 export type { SQLInjectionConfig } from './sqlInjectionPrevention';
 
 /**
@@ -92,9 +146,6 @@ export type { SQLInjectionConfig } from './sqlInjectionPrevention';
  * ```
  */
 
-// Commented out to avoid circular dependency issues in compiled code
-// Users should create these stacks in their own code using the exported middleware
-/*
 export const securityMiddleware = {
   basic: [
     rateLimiters.general,
@@ -131,7 +182,6 @@ export const securityMiddleware = {
     sanitizeInput('body')
   ]
 };
-*/
 
 /**
  * Security configuration presets
@@ -229,7 +279,6 @@ export const securityConfigs = {
  * ```
  */
 
-/*
 export const applySecurityMiddleware = (environment: 'production' | 'development' | 'testing' = 'production') => {
   const config = securityConfigs[environment];
   
@@ -243,7 +292,6 @@ export const applySecurityMiddleware = (environment: 'production' | 'development
     sanitizeInput('params')
   ];
 };
-*/
 
 /**
  * Health check for all security middleware
@@ -271,7 +319,6 @@ export const applySecurityMiddleware = (environment: 'production' | 'development
  * ```
  */
 
-/*
 export const securityHealthCheck = async () => {
   const results = {
     redis: false,
@@ -282,14 +329,12 @@ export const securityHealthCheck = async () => {
   };
 
   try {
-    // Check Redis connection
     await redisClient.ping();
     results.redis = true;
   } catch (error) {
     results.redis = false;
   }
 
-  // CSRF check
   try {
     await generateCSRFToken('test-session');
     results.csrf = true;
@@ -297,7 +342,6 @@ export const securityHealthCheck = async () => {
     results.csrf = false;
   }
 
-  // Validation check
   try {
     const testData = { email: 'test@example.com' };
     const { error } = validationSchemas.passwordResetRequest.validate(testData);
@@ -306,7 +350,6 @@ export const securityHealthCheck = async () => {
     results.validation = false;
   }
 
-  // XSS check
   try {
     const testInput = '<script>alert("test")</script>';
     const sanitized = sanitizeString(testInput);
@@ -315,7 +358,6 @@ export const securityHealthCheck = async () => {
     results.xss = false;
   }
 
-  // SQL injection check
   try {
     const testInput = "'; DROP TABLE users; --";
     const detection = detectSQLInjection(testInput);
@@ -326,7 +368,9 @@ export const securityHealthCheck = async () => {
 
   return results;
 };
-*/
+
+// Auth middleware
+export { authenticateToken, optionalAuth } from './auth';
 
 /**
  * Default export with common utilities
