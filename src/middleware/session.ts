@@ -20,19 +20,25 @@ declare module 'express-session' {
 
 // Custom Redis session store
 class RedisSessionStore extends session.Store {
-  private redisClient;
+  private redisClient: ReturnType<typeof getRedisClient> | null = null;
   private ttl: number;
 
   constructor(options: { ttl?: number } = {}) {
     super();
-    this.redisClient = getRedisClient();
     this.ttl = options.ttl || appConfig.security.sessionTimeout / 1000; // Convert to seconds
+  }
+
+  private getClient() {
+    if (!this.redisClient) {
+      this.redisClient = getRedisClient();
+    }
+    return this.redisClient;
   }
 
   async get(sid: string, callback: (err: any, session?: session.SessionData) => void): Promise<void> {
     try {
       const key = `session:${sid}`;
-      const data = await this.redisClient.get(key);
+      const data = await this.getClient().get(key);
       
       if (!data) {
         return callback(null, null);
@@ -51,7 +57,7 @@ class RedisSessionStore extends session.Store {
       const key = `session:${sid}`;
       const data = JSON.stringify(session);
       
-      await this.redisClient.setEx(key, this.ttl, data);
+      await this.getClient().setEx(key, this.ttl, data);
       
       if (callback) callback();
     } catch (error) {
@@ -63,7 +69,7 @@ class RedisSessionStore extends session.Store {
   async destroy(sid: string, callback?: (err?: any) => void): Promise<void> {
     try {
       const key = `session:${sid}`;
-      await this.redisClient.del(key);
+      await this.getClient().del(key);
       
       if (callback) callback();
     } catch (error) {
@@ -75,7 +81,7 @@ class RedisSessionStore extends session.Store {
   async touch(sid: string, session: session.SessionData, callback?: (err?: any) => void): Promise<void> {
     try {
       const key = `session:${sid}`;
-      await this.redisClient.expire(key, this.ttl);
+      await this.getClient().expire(key, this.ttl);
       
       if (callback) callback();
     } catch (error) {
@@ -86,9 +92,9 @@ class RedisSessionStore extends session.Store {
 
   async clear(callback?: (err?: any) => void): Promise<void> {
     try {
-      const keys = await this.redisClient.keys('session:*');
+      const keys = await this.getClient().keys('session:*');
       if (keys.length > 0) {
-        await this.redisClient.del(keys);
+        await this.getClient().del(keys);
       }
       
       if (callback) callback();
@@ -100,7 +106,7 @@ class RedisSessionStore extends session.Store {
 
   async length(callback: (err: any, length?: number) => void): Promise<void> {
     try {
-      const keys = await this.redisClient.keys('session:*');
+      const keys = await this.getClient().keys('session:*');
       callback(null, keys.length);
     } catch (error) {
       logger.error('Error getting session count from Redis', { error });

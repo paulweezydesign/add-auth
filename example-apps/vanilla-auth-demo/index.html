@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Add-Auth Vanilla Demo</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app" id="app">
+    <header>
+      <h1>🔐 Add-Auth Vanilla Demo</h1>
+      <span class="status" id="api-status">Checking API...</span>
+    </header>
+
+    <div id="alerts"></div>
+
+    <!-- Login View -->
+    <div class="card" id="login-view">
+      <h2>Login</h2>
+      <form id="login-form">
+        <div class="field">
+          <label for="login-email">Email</label>
+          <input id="login-email" type="email" required placeholder="you@example.com" />
+        </div>
+        <div class="field">
+          <label for="login-password">Password</label>
+          <input id="login-password" type="password" required placeholder="••••••••" />
+        </div>
+        <button type="submit" id="login-btn">Sign In</button>
+      </form>
+      <p class="switch">Don't have an account? <a href="#" id="show-register">Register</a></p>
+    </div>
+
+    <!-- Register View -->
+    <div class="card hidden" id="register-view">
+      <h2>Register</h2>
+      <form id="register-form">
+        <div class="field">
+          <label for="reg-username">Username</label>
+          <input id="reg-username" required minlength="3" maxlength="30" placeholder="johndoe" />
+        </div>
+        <div class="field">
+          <label for="reg-email">Email</label>
+          <input id="reg-email" type="email" required placeholder="you@example.com" />
+        </div>
+        <div class="field">
+          <label for="reg-password">Password</label>
+          <input id="reg-password" type="password" required minlength="8" placeholder="Min 8 chars, A-z, 0-9, !@#$" />
+        </div>
+        <div class="field">
+          <label for="reg-confirm">Confirm Password</label>
+          <input id="reg-confirm" type="password" required placeholder="Repeat password" />
+        </div>
+        <button type="submit" id="register-btn">Create Account</button>
+      </form>
+      <p class="switch">Already have an account? <a href="#" id="show-login">Login</a></p>
+    </div>
+
+    <!-- Dashboard View -->
+    <div class="card hidden" id="dashboard-view">
+      <h2>Dashboard</h2>
+      <div class="user-info">
+        <div class="avatar" id="user-avatar">?</div>
+        <div class="details" id="user-details"></div>
+      </div>
+      <div class="actions">
+        <button class="secondary" id="refresh-btn">Refresh Info</button>
+        <button class="danger" id="logout-btn">Logout</button>
+      </div>
+    </div>
+
+    <footer>
+      Powered by <strong>@paulweezydesign/add-auth</strong> — HTML, CSS &amp; JavaScript
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -473,8 +473,8 @@ export const detectXSS = (input: string): { detected: boolean; patterns: string[
   // Decode common encodings first
   const decodedInputs = [
     input,
-    decodeURIComponent(input).catch(() => input),
-    Buffer.from(input, 'base64').toString('utf-8').catch(() => input),
+    (() => { try { return decodeURIComponent(input); } catch { return input; } })(),
+    (() => { try { return Buffer.from(input, 'base64').toString('utf-8'); } catch { return input; } })(),
     input.replace(/\\u([0-9a-fA-F]{4})/g, (match, code) => String.fromCharCode(parseInt(code, 16))),
     input.replace(/\\x([0-9a-fA-F]{2})/g, (match, code) => String.fromCharCode(parseInt(code, 16))),
     input.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&')
