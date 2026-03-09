@@ -230,6 +230,15 @@ export const validationSchemas = {
       })
   }),
 
+  // Refresh token schema
+  refreshToken: Joi.object({
+    refreshToken: Joi.string()
+      .required()
+      .messages({
+        'any.required': 'Refresh token is required'
+      })
+  }),
+
   // Pagination schema
   pagination: Joi.object({
     page: Joi.number()

@@ -83,7 +83,7 @@ export const sessionStore = {
     const client = getRedisClient();
     const key = `session:${sessionId}`;
     const data = await client.get(key);
-    return data ? JSON.parse(data) : null;
+    return data ? JSON.parse(data.toString()) : null;
   },
 
   async destroy(sessionId: string): Promise<void> {
