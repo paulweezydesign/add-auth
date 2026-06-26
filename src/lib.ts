@@ -60,11 +60,17 @@ export {
   escapeIdentifier
 } from './middleware/sqlInjectionPrevention';
 
-export { authenticateToken, optionalAuth } from './middleware/auth';
-export { 
+export {
+  authenticate,
+  authenticateToken,
+  optionalAuth,
+  optionalAuthenticate,
+} from './middleware/authenticate';
+export {
+  authorize,
   requireAuth,
-  requireRole, 
-  requirePermission, 
+  requireRole,
+  requirePermission,
   requireRoleOrPermission,
   requireOwnership,
   requireAdmin,
@@ -72,8 +78,10 @@ export {
   requireTrustScore,
   hasPermission,
   getUserRoles,
-  getUserPermissions
-} from './middleware/rbac';
+  getUserPermissions,
+} from './middleware/authorize';
+export type { AuthContext, AuthMethod } from './types/auth-context';
+export { TokenStore } from './services/tokenStore';
 // Note: sessionMiddleware requires Redis initialization before import
 // Users should import directly: import { sessionMiddleware } from '@paulweezydesign/add-auth/dist/middleware/session';
 // export { sessionMiddleware } from './middleware/session';

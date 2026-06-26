@@ -6,6 +6,7 @@ export interface UserPayload {
 
 export interface JWTPayload extends UserPayload {
   sessionId?: string;
+  jti?: string;
   iat?: number;
   exp?: number;
 }
@@ -20,6 +21,7 @@ export interface TokenPair {
 export interface RefreshTokenData {
   userId: string;
   tokenId: string;
+  sessionId?: string;
   expiresAt: Date;
   createdAt: Date;
   revokedAt?: Date;

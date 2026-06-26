@@ -11,17 +11,32 @@ import {
   JWTError
 } from '../types/jwt';
 
+export interface TokenGenerationOptions {
+  sessionId?: string;
+}
+
+function buildJwtPayload(
+  payload: UserPayload,
+  options?: TokenGenerationOptions
+): JWTPayload {
+  return {
+    ...payload,
+    sessionId: options?.sessionId,
+    jti: uuidv4(),
+  };
+}
+
 /**
  * Generate a JWT access token
  */
-export async function generateAccessToken(payload: UserPayload): Promise<string> {
+export async function generateAccessToken(
+  payload: UserPayload,
+  options?: TokenGenerationOptions
+): Promise<string> {
   try {
-    const jwtPayload: JWTPayload = {
-      ...payload,
-      sessionId: uuidv4(),
-    };
+    const jwtPayload = buildJwtPayload(payload, options);
 
-    return jwt.sign(jwtPayload as any, appConfig.security.jwtSecret, {
+    return jwt.sign(jwtPayload as jwt.JwtPayload, appConfig.security.jwtSecret, {
       expiresIn: appConfig.security.jwtExpiresIn,
     } as jwt.SignOptions);
   } catch (error) {
@@ -33,14 +48,14 @@ export async function generateAccessToken(payload: UserPayload): Promise<string>
 /**
  * Generate a JWT refresh token
  */
-export async function generateRefreshToken(payload: UserPayload): Promise<string> {
+export async function generateRefreshToken(
+  payload: UserPayload,
+  options?: TokenGenerationOptions
+): Promise<string> {
   try {
-    const jwtPayload: JWTPayload = {
-      ...payload,
-      sessionId: uuidv4(),
-    };
+    const jwtPayload = buildJwtPayload(payload, options);
 
-    return jwt.sign(jwtPayload as any, appConfig.security.jwtSecret, {
+    return jwt.sign(jwtPayload as jwt.JwtPayload, appConfig.security.jwtSecret, {
       expiresIn: appConfig.security.jwtRefreshExpiresIn,
     } as jwt.SignOptions);
   } catch (error) {
@@ -116,9 +131,21 @@ export async function validateRefreshToken(token: string): Promise<TokenValidati
 }
 
 /**
- * Get token ID from JWT
+ * Get unique token ID from JWT (jti claim, with legacy sessionId fallback)
  */
 export function getTokenId(token: string): string | null {
+  try {
+    const decoded = jwt.decode(token) as JWTPayload;
+    return decoded?.jti || decoded?.sessionId || null;
+  } catch (error) {
+    return null;
+  }
+}
+
+/**
+ * Get linked session ID from JWT
+ */
+export function getSessionIdFromToken(token: string): string | null {
   try {
     const decoded = jwt.decode(token) as JWTPayload;
     return decoded?.sessionId || null;
@@ -202,4 +229,31 @@ export function extractTokenFromHeader(authHeader: string | undefined): string |
   }
   
   return parts[1];
+}
+
+/**
+ * Parse refresh token TTL from config (defaults to 7 days)
+ */
+export function getRefreshTokenTtlMs(): number {
+  const value = appConfig.security.jwtRefreshExpiresIn;
+  const match = /^(\d+)([dhms])$/.exec(value);
+  if (!match) {
+    return 7 * 24 * 60 * 60 * 1000;
+  }
+
+  const amount = Number(match[1]);
+  const unit = match[2];
+
+  switch (unit) {
+    case 'd':
+      return amount * 24 * 60 * 60 * 1000;
+    case 'h':
+      return amount * 60 * 60 * 1000;
+    case 'm':
+      return amount * 60 * 1000;
+    case 's':
+      return amount * 1000;
+    default:
+      return 7 * 24 * 60 * 60 * 1000;
+  }
 }

@@ -1,15 +1,6 @@
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
 import { appConfig } from '../config';
 import { logger } from './logger';
-
-export interface JWTPayload {
-  userId: string;
-  email: string;
-  sessionId: string;
-  iat?: number;
-  exp?: number;
-}
 
 export class AuthUtils {
   /**
@@ -38,66 +29,6 @@ export class AuthUtils {
   }
 
   /**
-   * Generate a JWT token
-   */
-  static generateToken(payload: Omit<JWTPayload, 'iat' | 'exp'>): string {
-    try {
-      return jwt.sign(payload as any, appConfig.security.jwtSecret, {
-        expiresIn: appConfig.security.jwtExpiresIn,
-      } as jwt.SignOptions);
-    } catch (error) {
-      logger.error('Error generating JWT token:', error);
-      throw new Error('Failed to generate token');
-    }
-  }
-
-  /**
-   * Generate a refresh token
-   */
-  static generateRefreshToken(payload: Omit<JWTPayload, 'iat' | 'exp'>): string {
-    try {
-      return jwt.sign(payload as any, appConfig.security.jwtSecret, {
-        expiresIn: appConfig.security.jwtRefreshExpiresIn,
-      } as jwt.SignOptions);
-    } catch (error) {
-      logger.error('Error generating refresh token:', error);
-      throw new Error('Failed to generate refresh token');
-    }
-  }
-
-  /**
-   * Verify and decode a JWT token
-   */
-  static verifyToken(token: string): JWTPayload {
-    try {
-      return jwt.verify(token, appConfig.security.jwtSecret) as JWTPayload;
-    } catch (error) {
-      if (error instanceof jwt.JsonWebTokenError) {
-        throw new Error('Invalid token');
-      } else if (error instanceof jwt.TokenExpiredError) {
-        throw new Error('Token expired');
-      } else {
-        logger.error('Error verifying JWT token:', error);
-        throw new Error('Failed to verify token');
-      }
-    }
-  }
-
-  /**
-   * Extract token from Authorization header
-   */
-  static extractTokenFromHeader(authHeader: string | undefined): string | null {
-    if (!authHeader) return null;
-    
-    const parts = authHeader.split(' ');
-    if (parts.length !== 2 || parts[0] !== 'Bearer') {
-      return null;
-    }
-    
-    return parts[1];
-  }
-
-  /**
    * Generate a secure random token (for session tokens, etc.)
    */
   static generateSecureToken(length = 32): string {
@@ -108,9 +39,12 @@ export class AuthUtils {
   /**
    * Calculate session expiration time
    */
-  static calculateSessionExpiration(): Date {
+  static calculateSessionExpiration(rememberMe?: boolean): Date {
     const now = new Date();
-    return new Date(now.getTime() + appConfig.security.sessionTimeout);
+    const ttl = rememberMe
+      ? 7 * 24 * 60 * 60 * 1000
+      : appConfig.security.sessionTimeout;
+    return new Date(now.getTime() + ttl);
   }
 
   /**

@@ -24,11 +24,25 @@ jest.mock('../../services/sessionService', () => ({
   }
 }));
 
+jest.mock('../../models/Role', () => ({
+  RoleModel: {
+    findByName: jest.fn(),
+    assignToUser: jest.fn(),
+    getUserRoles: jest.fn(),
+  },
+}));
+
+jest.mock('../../utils/tokenBlacklist', () => ({
+  blacklistAllUserTokens: jest.fn().mockResolvedValue(1),
+}));
+
 jest.mock('../../security/password-security', () => ({
   defaultPasswordSecurity: {
     validatePassword: jest.fn()
   }
 }));
+
+import { blacklistAllUserTokens } from '../../utils/tokenBlacklist';
 
 describe('changePassword controller', () => {
   it('updates password, invalidates sessions, and clears cookies', async () => {
@@ -60,6 +74,7 @@ describe('changePassword controller', () => {
 
     expect(UserModel.updatePassword).toHaveBeenCalledWith('user-1', 'new-hash');
     expect(SessionService.destroyUserSessions).toHaveBeenCalledWith('user-1');
+    expect(blacklistAllUserTokens).toHaveBeenCalledWith('user-1', 'security');
     expect(res.clearCookie).toHaveBeenCalledWith('sessionId');
     expect(res.json).toHaveBeenCalledWith({
       success: true,
