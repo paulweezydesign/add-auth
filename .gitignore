@@ -101,4 +101,8 @@ public
 .Spotlight-V100
 .Trashes
 ehthumbs.db
-Thumbs.dbdump.rdb
+Thumbs.db
+
+# Redis runtime dump
+dump.rdb
+
