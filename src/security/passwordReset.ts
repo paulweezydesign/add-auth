@@ -231,10 +231,11 @@ export class PasswordResetManager {
       // Hash the new password
       const hashedPassword = await AuthUtils.hashPassword(newPassword);
 
-      // Mark token as used
+      // Mark token as used. Reuse the token's own hashedToken so we write back to
+      // the exact key the token is stored under (single source of truth), matching
+      // revokeAllTokensForUser and avoiding a redundant re-hash.
       tokenData.isUsed = true;
-      const hashedToken = this.hashToken(token);
-      const key = `password-reset:${hashedToken}`;
+      const key = `password-reset:${tokenData.hashedToken}`;
       await redisClient.setex(
         key,
         Math.floor(this.config.tokenExpiry / 1000),
