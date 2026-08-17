@@ -370,7 +370,28 @@ export const securityHealthCheck = async () => {
 };
 
 // Auth middleware
-export { authenticateToken, optionalAuth } from './auth';
+export {
+  authenticate,
+  authenticateToken,
+  optionalAuth,
+  optionalAuthenticate,
+} from './authenticate';
+export { handleAuthErrors } from './auth';
+export { globalErrorHandler } from './errorHandler';
+export {
+  authorize,
+  requireAuth,
+  requireRole,
+  requirePermission,
+  requireRoleOrPermission,
+  requireOwnership,
+  requireAdmin,
+  requireModerator,
+  requireTrustScore,
+  hasPermission,
+  getUserRoles,
+  getUserPermissions,
+} from './authorize';
 
 /**
  * Default export with common utilities

@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { UserModel } from '../models/User';
 import { AuthUtils } from '../utils/auth';
 import { createAuthenticationTokens, refreshAccessToken } from '../utils/refreshToken';
-import { performLogout } from '../utils/tokenBlacklist';
+import { performLogout, blacklistAllUserTokens } from '../utils/tokenBlacklist';
 import { extractTokenFromHeader } from '../utils/jwt';
 import { UserPayload, JWTPayload } from '../types/jwt';
 import { UserStatus } from '../types/user';
@@ -11,6 +11,7 @@ import { defaultPasswordSecurity } from '../security/password-security';
 import { SessionService } from '../services/sessionService';
 import { FingerprintService } from '../utils/fingerprint';
 import { RoleModel } from '../models/Role';
+import '../types/auth-context';
 
 /**
  * Register a new user
@@ -50,6 +51,18 @@ export async function register(req: Request, res: Response): Promise<void> {
       password: hashedPassword
     });
 
+    const defaultRole = await RoleModel.findByName('user');
+    if (defaultRole) {
+      await RoleModel.assignToUser({
+        user_id: user.id,
+        role_id: defaultRole.id,
+        assigned_by: user.id,
+      });
+    }
+
+    const roles = await RoleModel.getUserRoles(user.id);
+    const roleNames = roles.map(role => role.name);
+
     // Create Redis session with fingerprinting
     const sessionToken = AuthUtils.generateSecureToken();
     const fingerprint = FingerprintService.generateFingerprint(req);
@@ -63,16 +76,17 @@ export async function register(req: Request, res: Response): Promise<void> {
       fingerprint: fingerprint
     });
 
-    // Generate JWT tokens
+    // Generate JWT tokens linked to the server session
     const userPayload: UserPayload = {
       id: user.id,
       email: user.email,
-      roles: [] // Default roles
+      roles: roleNames,
     };
 
     const tokens = await createAuthenticationTokens(userPayload, {
+      sessionId: redisSession.id,
       ipAddress: AuthUtils.getClientIp(req),
-      userAgent: AuthUtils.getUserAgent(req) || undefined
+      userAgent: AuthUtils.getUserAgent(req) || undefined,
     });
 
     logger.info('User registered successfully', { 
@@ -190,9 +204,9 @@ export async function login(req: Request, res: Response): Promise<void> {
     };
 
     const tokens = await createAuthenticationTokens(userPayload, {
+      sessionId: redisSession.id,
       ipAddress: AuthUtils.getClientIp(req),
       userAgent: AuthUtils.getUserAgent(req) || undefined,
-      rememberMe
     });
 
     logger.info('User logged in successfully', { 
@@ -303,6 +317,7 @@ export async function changePassword(req: Request, res: Response): Promise<void>
     await UserModel.updatePassword(userId, hashedPassword);
 
     await SessionService.destroyUserSessions(userId);
+    await blacklistAllUserTokens(userId, 'security');
     res.clearCookie('sessionId');
 
     logger.info('User password changed successfully', { userId });
@@ -328,8 +343,11 @@ export async function logout(req: Request, res: Response): Promise<void> {
     const authHeader = req.headers.authorization;
     const token = extractTokenFromHeader(authHeader);
 
-    // Get session ID from cookie or header
-    const sessionId = req.cookies?.sessionId || req.headers['x-session-id'] as string;
+    const sessionId =
+      req.auth?.sessionId ||
+      req.user?.sessionId ||
+      req.cookies?.sessionId ||
+      (req.headers['x-session-id'] as string);
 
     let logoutSuccess = false;
 
