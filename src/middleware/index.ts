@@ -125,6 +125,14 @@ export {
 };
 export type { SQLInjectionConfig } from './sqlInjectionPrevention';
 
+// Authentication Middleware
+export {
+  authenticateToken,
+  optionalAuth,
+  requireRole,
+  handleAuthErrors
+} from './auth';
+
 /**
  * Combined security middleware stacks
  * Note: These are provided as examples. In your application, you can create

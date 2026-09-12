@@ -52,10 +52,11 @@ router.get('/google/callback',
         action: 'oauth_login',
         resource_type: 'user',
         resource_id: user.id,
+        ip_address: fingerprint.ip,
+        user_agent: fingerprint.userAgent,
+        success: true,
         details: {
           provider: 'google',
-          ip_address: fingerprint.ip,
-          user_agent: fingerprint.userAgent,
           session_id: req.sessionID,
         },
       });
@@ -121,10 +122,11 @@ router.get('/github/callback',
         action: 'oauth_login',
         resource_type: 'user',
         resource_id: user.id,
+        ip_address: fingerprint.ip,
+        user_agent: fingerprint.userAgent,
+        success: true,
         details: {
           provider: 'github',
-          ip_address: fingerprint.ip,
-          user_agent: fingerprint.userAgent,
           session_id: req.sessionID,
         },
       });
@@ -194,14 +196,17 @@ router.post('/unlink/:provider', async (req, res) => {
 
     if (unlinked) {
       // Log account unlinking
+      const fingerprint = FingerprintService.generateFingerprint(req);
       await AuditLogModel.create({
         user_id: userId,
         action: 'oauth_unlink',
         resource_type: 'user',
         resource_id: userId,
+        ip_address: fingerprint.ip,
+        user_agent: fingerprint.userAgent,
+        success: true,
         details: {
           provider,
-          ip_address: FingerprintService.generateFingerprint(req).ip,
         },
       });
 
