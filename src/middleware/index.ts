@@ -8,6 +8,8 @@ import {
   rateLimiters,
   createCustomRateLimiter,
   createUserRateLimiter,
+  createExponentialBackoffRateLimiter,
+  createSlidingWindowRateLimiter,
   rateLimiterHealthCheck,
   closeRedisConnection,
   redisClient
@@ -176,6 +178,7 @@ export const securityMiddleware = {
     sanitizeInput('query')
   ],
   passwordReset: [
+    enhancedRateLimiters.passwordResetWithBackoff,
     rateLimiters.passwordReset,
     csrfProtection(),
     xssProtection(),
@@ -183,6 +186,7 @@ export const securityMiddleware = {
     sanitizeInput('body')
   ],
   registration: [
+    enhancedRateLimiters.registrationSlidingWindow,
     rateLimiters.registration,
     csrfProtection(),
     xssProtection(),
