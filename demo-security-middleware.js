@@ -433,9 +433,9 @@ app.listen(PORT, () => {
   console.log('   Run: node src/tests/load-test.js');
   console.log('');
   console.log('📄 Documentation available in:');
-  console.log('   - /home/weezyone/apps/add-auth-rate-limit/src/middleware/rateLimiter.ts');
-  console.log('   - /home/weezyone/apps/add-auth-rate-limit/src/middleware/csrfProtection.ts');
-  console.log('   - /home/weezyone/apps/add-auth-rate-limit/src/tests/middleware.test.ts');
+   console.log('   - src/middleware/rateLimiter.ts');
+   console.log('   - src/middleware/csrfProtection.ts');
+   console.log('   - src/tests/middleware.test.ts');
 });
 
 module.exports = app;
