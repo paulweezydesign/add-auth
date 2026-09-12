@@ -44,7 +44,7 @@ export class AuthUtils {
     try {
       return jwt.sign(payload as any, appConfig.security.jwtSecret, {
         expiresIn: appConfig.security.jwtExpiresIn,
-      });
+      } as jwt.SignOptions);
     } catch (error) {
       logger.error('Error generating JWT token:', error);
       throw new Error('Failed to generate token');
@@ -58,7 +58,7 @@ export class AuthUtils {
     try {
       return jwt.sign(payload as any, appConfig.security.jwtSecret, {
         expiresIn: appConfig.security.jwtRefreshExpiresIn,
-      });
+      } as jwt.SignOptions);
     } catch (error) {
       logger.error('Error generating refresh token:', error);
       throw new Error('Failed to generate refresh token');

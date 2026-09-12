@@ -102,3 +102,7 @@ public
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Redis runtime dump
+dump.rdb
+

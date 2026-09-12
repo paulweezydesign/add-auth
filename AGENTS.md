@@ -415,3 +415,51 @@ These commands make AI calls and may take up to a minute:
 ---
 
 _This guide ensures Claude Code has immediate access to Task Master's essential functionality for agentic development workflows._
+
+## Cursor Cloud specific instructions
+
+### Services overview
+
+This is a Node.js/TypeScript Express.js authentication library with an example API server. It requires:
+
+| Service | Purpose | Required |
+|---|---|---|
+| PostgreSQL 16 | Primary database (users, sessions, roles, audit logs) | Yes |
+| Redis 7 | Session store, rate limiting, CSRF tokens, token blacklisting | Yes (server starts without it but features degrade) |
+| Node.js 18+ | Runtime | Yes |
+
+### Starting services
+
+PostgreSQL and Redis must be started before running the application:
+
+```bash
+sudo pg_ctlcluster 16 main start
+sudo redis-server --daemonize yes
+```
+
+### Running the application
+
+```bash
+npm run dev   # Dev server with hot-reload (uses ts-node-dev --transpile-only)
+```
+
+The server listens on port 3000. See `package.json` for all available scripts.
+
+### Frontend example apps
+
+`example-apps/` contains demo clients that talk to the API on port 3000 (each has its own `package.json`; run `npm install` then `npm run dev` inside the app):
+
+- `react-auth-demo` (Vite, port 5173) — good for a quick end-to-end UI check of register/login/dashboard.
+- `nextjs-auth-demo` (Next.js, port 3001).
+- `vanilla-auth-demo` — static HTML/JS (open `index.html` or serve the folder).
+
+The API CORS allowlist comes from `FRONTEND_URL` (comma-separated). Include the demo origins (e.g. `http://localhost:5173`, `http://localhost:3001`) so browser calls with credentials succeed.
+
+### Key caveats
+
+- **`DB_SSL` env var**: Zod's `z.coerce.boolean()` treats the string `"false"` as truthy. Either leave `DB_SSL` unset (defaults to `false`) or set it to an empty string. Do NOT set `DB_SSL=false`.
+- **TypeScript build (`npm run build`)**: The codebase has many pre-existing type errors. The dev server works because it uses `--transpile-only`. A clean `tsc` build will fail.
+- **ESLint config**: The `.eslintrc.json` extends value must be `plugin:@typescript-eslint/recommended` (not `@typescript-eslint/recommended`).
+- **Tests**: A few Jest suites exist under `src/**/__tests__/` (e.g. `passwordReset.test.ts`, `auth.changePassword.test.ts`). Some of these currently fail due to pre-existing test/code issues, not environment problems. `npm test` runs them; keep `--passWithNoTests` when running a filtered subset that may match nothing.
+- **Database migrations**: Run `npx ts-node src/database/migrate.ts migrate` (the `npm run migrate` script does not pass the `migrate` subcommand argument).
+- **CSRF tokens**: Every `/api/auth/*` POST (including `register` and `login`, not just later mutating calls) requires a CSRF token. Fetch one from `GET /api/auth/csrf-token` using a cookie jar, then send the returned token via the `X-CSRF-Token` header together with the same session cookie on subsequent requests.

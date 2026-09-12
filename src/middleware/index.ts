@@ -4,7 +4,7 @@
  */
 
 // Rate Limiting
-export {
+import {
   rateLimiters,
   createCustomRateLimiter,
   createUserRateLimiter,
@@ -14,9 +14,17 @@ export {
   closeRedisConnection,
   redisClient
 } from './rateLimiter';
+export {
+  rateLimiters,
+  createCustomRateLimiter,
+  createUserRateLimiter,
+  rateLimiterHealthCheck,
+  closeRedisConnection,
+  redisClient
+};
 
 // CSRF Protection
-export {
+import {
   generateCSRFToken,
   validateCSRFToken,
   generateCSRFMiddleware,
@@ -25,10 +33,19 @@ export {
   cleanupExpiredCSRFTokens,
   csrfProtection
 } from './csrfProtection';
+export {
+  generateCSRFToken,
+  validateCSRFToken,
+  generateCSRFMiddleware,
+  validateCSRFMiddleware,
+  getCSRFTokenEndpoint,
+  cleanupExpiredCSRFTokens,
+  csrfProtection
+};
 export type { CSRFConfig } from './csrfProtection';
 
 // Input Validation
-export {
+import {
   validate,
   validateBody,
   validateQuery,
@@ -40,10 +57,22 @@ export {
   isValidEmail,
   isStrongPassword
 } from './validation';
+export {
+  validate,
+  validateBody,
+  validateQuery,
+  validateParams,
+  validateHeaders,
+  sanitizeInput,
+  validateAndSanitize,
+  validationSchemas,
+  isValidEmail,
+  isStrongPassword
+};
 export type { ValidationTarget, ValidationOptions } from './validation';
 
 // XSS Protection
-export {
+import {
   sanitizeString,
   sanitizeObject,
   xssProtection,
@@ -56,10 +85,23 @@ export {
   detectXSS,
   xssDetection
 } from './xssProtection';
+export {
+  sanitizeString,
+  sanitizeObject,
+  xssProtection,
+  strictXSSProtection,
+  xssProtectFields,
+  contentSecurityPolicy,
+  escapeHtml,
+  sanitizeUrl,
+  safeJsonParse,
+  detectXSS,
+  xssDetection
+};
 export type { XSSProtectionConfig } from './xssProtection';
 
 // SQL Injection Prevention
-export {
+import {
   sqlInjectionPrevention,
   sqlInjectionSanitization,
   sqlInjectionDetectionFields,
@@ -71,61 +113,55 @@ export {
   validateIdentifier,
   escapeIdentifier
 } from './sqlInjectionPrevention';
+export {
+  sqlInjectionPrevention,
+  sqlInjectionSanitization,
+  sqlInjectionDetectionFields,
+  detectSQLInjection,
+  sanitizeSQLInput,
+  sanitizeObjectSQL,
+  createParameterizedQuery,
+  buildSafeQuery,
+  validateIdentifier,
+  escapeIdentifier
+};
 export type { SQLInjectionConfig } from './sqlInjectionPrevention';
 
-/**
- * Enhanced rate limiter configurations
- */
-export const enhancedRateLimiters = {
-  // Exponential backoff for auth attempts
-  authWithBackoff: createExponentialBackoffRateLimiter({
-    baseWindowMs: 15 * 60 * 1000, // 15 minutes base
-    maxWindowMs: 24 * 60 * 60 * 1000, // 24 hours max
-    baseMax: 5, // 5 attempts base
-    keyPrefix: 'auth-backoff',
-    message: 'Too many failed authentication attempts. Exponential backoff applied.',
-    backoffMultiplier: 2
-  }),
-  
-  // Sliding window for login attempts
-  loginSlidingWindow: createSlidingWindowRateLimiter({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    maxRequests: 5,
-    keyPrefix: 'login-sliding',
-    message: 'Too many login attempts. Please wait before trying again.'
-  }),
-  
-  // Sliding window for registration
-  registrationSlidingWindow: createSlidingWindowRateLimiter({
-    windowMs: 60 * 60 * 1000, // 1 hour
-    maxRequests: 3,
-    keyPrefix: 'registration-sliding',
-    message: 'Too many registration attempts. Please wait before trying again.'
-  }),
-  
-  // Exponential backoff for password reset
-  passwordResetWithBackoff: createExponentialBackoffRateLimiter({
-    baseWindowMs: 60 * 60 * 1000, // 1 hour base
-    maxWindowMs: 24 * 60 * 60 * 1000, // 24 hours max
-    baseMax: 3, // 3 attempts base
-    keyPrefix: 'password-reset-backoff',
-    message: 'Too many password reset attempts. Exponential backoff applied.',
-    backoffMultiplier: 3
-  })
-};
+// Authentication Middleware
+export {
+  authenticateToken,
+  optionalAuth,
+  requireRole,
+  handleAuthErrors
+} from './auth';
 
 /**
- * Combined security middleware stack
+ * Combined security middleware stacks
+ * Note: These are provided as examples. In your application, you can create
+ * similar middleware stacks by importing the individual middleware functions.
+ * 
+ * Example:
+ * ```typescript
+ * import { rateLimiters, csrfProtection, xssProtection, sqlInjectionPrevention, sanitizeInput } from '@paulweezydesign/add-auth';
+ * 
+ * const authStack = [
+ *   rateLimiters.auth,
+ *   csrfProtection(),
+ *   xssProtection(),
+ *   sqlInjectionPrevention(),
+ *   sanitizeInput('body')
+ * ];
+ * 
+ * app.post('/api/login', authStack, loginController);
+ * ```
  */
+
 export const securityMiddleware = {
-  // Basic security stack
   basic: [
     rateLimiters.general,
     xssProtection(),
     sqlInjectionPrevention()
   ],
-
-  // Authentication security stack
   auth: [
     rateLimiters.auth,
     csrfProtection(),
@@ -133,27 +169,6 @@ export const securityMiddleware = {
     sqlInjectionPrevention(),
     sanitizeInput('body')
   ],
-
-  // Enhanced authentication security stack with exponential backoff
-  authEnhanced: [
-    enhancedRateLimiters.authWithBackoff,
-    rateLimiters.auth,
-    csrfProtection(),
-    xssProtection(),
-    sqlInjectionPrevention(),
-    sanitizeInput('body')
-  ],
-
-  // Login with sliding window
-  login: [
-    enhancedRateLimiters.loginSlidingWindow,
-    csrfProtection(),
-    xssProtection(),
-    sqlInjectionPrevention(),
-    sanitizeInput('body')
-  ],
-
-  // Admin security stack
   admin: [
     rateLimiters.general,
     csrfProtection(),
@@ -162,8 +177,6 @@ export const securityMiddleware = {
     sanitizeInput('body'),
     sanitizeInput('query')
   ],
-
-  // Password reset security stack with exponential backoff
   passwordReset: [
     enhancedRateLimiters.passwordResetWithBackoff,
     rateLimiters.passwordReset,
@@ -172,8 +185,6 @@ export const securityMiddleware = {
     sqlInjectionPrevention(),
     sanitizeInput('body')
   ],
-
-  // Registration security stack with sliding window
   registration: [
     enhancedRateLimiters.registrationSlidingWindow,
     rateLimiters.registration,
@@ -257,7 +268,29 @@ export const securityConfigs = {
 
 /**
  * Apply security middleware based on environment
+ * 
+ * Note: This is a helper function that users can replicate in their own code
+ * using the individual middleware exports to avoid module loading issues.
+ * 
+ * Example:
+ * ```typescript
+ * import { rateLimiters, csrfProtection, xssProtection, sqlInjectionPrevention, sanitizeInput, securityConfigs } from '@paulweezydesign/add-auth';
+ * 
+ * function applySecurityMiddleware(environment = 'production') {
+ *   const config = securityConfigs[environment];
+ *   return [
+ *     rateLimiters.general,
+ *     csrfProtection(config.csrf),
+ *     xssProtection(config.xss),
+ *     sqlInjectionPrevention(config.sqlInjection),
+ *     sanitizeInput('body'),
+ *     sanitizeInput('query'),
+ *     sanitizeInput('params')
+ *   ];
+ * }
+ * ```
  */
+
 export const applySecurityMiddleware = (environment: 'production' | 'development' | 'testing' = 'production') => {
   const config = securityConfigs[environment];
   
@@ -274,7 +307,30 @@ export const applySecurityMiddleware = (environment: 'production' | 'development
 
 /**
  * Health check for all security middleware
+ * 
+ * Note: This is a helper function that users can replicate in their own code
+ * using the individual middleware exports to avoid module loading issues.
+ * 
+ * Example:
+ * ```typescript
+ * import { redisClient, generateCSRFToken, validationSchemas, sanitizeString, detectSQLInjection } from '@paulweezydesign/add-auth';
+ * 
+ * async function securityHealthCheck() {
+ *   const results = { redis: false, csrf: false, validation: false, xss: false, sqlInjection: false };
+ *   
+ *   try {
+ *     await redisClient.ping();
+ *     results.redis = true;
+ *   } catch (error) {
+ *     results.redis = false;
+ *   }
+ *   
+ *   // ... more checks
+ *   return results;
+ * }
+ * ```
  */
+
 export const securityHealthCheck = async () => {
   const results = {
     redis: false,
@@ -285,14 +341,12 @@ export const securityHealthCheck = async () => {
   };
 
   try {
-    // Check Redis connection
     await redisClient.ping();
     results.redis = true;
   } catch (error) {
     results.redis = false;
   }
 
-  // CSRF check
   try {
     await generateCSRFToken('test-session');
     results.csrf = true;
@@ -300,7 +354,6 @@ export const securityHealthCheck = async () => {
     results.csrf = false;
   }
 
-  // Validation check
   try {
     const testData = { email: 'test@example.com' };
     const { error } = validationSchemas.passwordResetRequest.validate(testData);
@@ -309,7 +362,6 @@ export const securityHealthCheck = async () => {
     results.validation = false;
   }
 
-  // XSS check
   try {
     const testInput = '<script>alert("test")</script>';
     const sanitized = sanitizeString(testInput);
@@ -318,7 +370,6 @@ export const securityHealthCheck = async () => {
     results.xss = false;
   }
 
-  // SQL injection check
   try {
     const testInput = "'; DROP TABLE users; --";
     const detection = detectSQLInjection(testInput);
@@ -330,21 +381,14 @@ export const securityHealthCheck = async () => {
   return results;
 };
 
+// Auth middleware
+export { authenticateToken, optionalAuth } from './auth';
+
+/**
+ * Default export with common utilities
+ * Note: Prefer named imports for better tree-shaking
+ */
 export default {
-  rateLimiters,
-  enhancedRateLimiters,
-  csrfProtection,
-  xssProtection,
-  sqlInjectionPrevention,
-  validation: {
-    validateBody,
-    validateQuery,
-    validateParams,
-    validateHeaders,
-    validationSchemas
-  },
-  securityMiddleware,
-  securityConfigs,
-  applySecurityMiddleware,
-  securityHealthCheck
+  // Individual exports are preferred over this default export
+  // Use: import { rateLimiters, csrfProtection } from '@paulweezydesign/add-auth';
 };

@@ -23,6 +23,7 @@ import {
 import { xssProtection } from '../middleware/xssProtection';
 import { sqlInjectionPrevention } from '../middleware/sqlInjectionPrevention';
 import { csrfProtection } from '../middleware/csrfProtection';
+import { requireAdmin, requireAuth } from '../middleware/rbac';
 
 const router = Router();
 
@@ -74,6 +75,8 @@ router.post(
 router.get(
   '/attempts/:email',
   rateLimiters.general,
+  requireAuth,
+  requireAdmin,
   validateParams({
     email: validationSchemas.userLogin.extract('email').required()
   }),
@@ -102,7 +105,8 @@ router.delete(
 router.get(
   '/admin/stats',
   rateLimiters.general,
-  // TODO: Add authentication and admin role middleware
+  requireAuth,
+  requireAdmin,
   getPasswordResetStats
 );
 
@@ -113,7 +117,8 @@ router.get(
 router.get(
   '/admin/user/:userId/tokens',
   rateLimiters.general,
-  // TODO: Add authentication and admin role middleware
+  requireAuth,
+  requireAdmin,
   validateParams(validationSchemas.idParam.keys({
     userId: validationSchemas.idParam.extract('id').required()
   })),
@@ -127,7 +132,8 @@ router.get(
 router.delete(
   '/admin/user/:userId/tokens',
   rateLimiters.general,
-  // TODO: Add authentication and admin role middleware
+  requireAuth,
+  requireAdmin,
   csrfProtection(),
   validateParams(validationSchemas.idParam.keys({
     userId: validationSchemas.idParam.extract('id').required()

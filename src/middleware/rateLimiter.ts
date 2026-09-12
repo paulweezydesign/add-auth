@@ -131,6 +131,42 @@ export const rateLimiters = {
     }
   }),
 
+  // Login endpoints (alias for auth)
+  login: rateLimit({
+    store: new RedisStore({
+      sendCommand: (...args: string[]) => redisClient.call(...args),
+    }),
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req: Request) => `login:${req.ip || req.connection.remoteAddress || 'unknown'}`,
+  }),
+
+  // Refresh token endpoints
+  refresh: rateLimit({
+    store: new RedisStore({
+      sendCommand: (...args: string[]) => redisClient.call(...args),
+    }),
+    windowMs: 15 * 60 * 1000,
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req: Request) => `refresh:${req.ip || req.connection.remoteAddress || 'unknown'}`,
+  }),
+
+  // Admin action endpoints
+  adminActions: rateLimit({
+    store: new RedisStore({
+      sendCommand: (...args: string[]) => redisClient.call(...args),
+    }),
+    windowMs: 15 * 60 * 1000,
+    max: 50,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req: Request) => `admin:${req.ip || req.connection.remoteAddress || 'unknown'}`,
+  }),
+
   // Registration endpoints
   registration: rateLimit({
     store: new RedisStore({

@@ -1,198 +1,533 @@
-# Add-Auth
+# @paulweezydesign/add-auth
 
-A secure authentication system built with Node.js, TypeScript, and PostgreSQL.
+A comprehensive authentication and authorization library for Node.js applications with TypeScript support. Features include RBAC (Role-Based Access Control), OAuth integration, session management, security middleware, and much more.
 
 ## Features
 
-- User registration and authentication
-- JWT-based session management
-- Role-based access control (RBAC)
-- Comprehensive audit logging
-- Password hashing with bcrypt
-- Account lockout protection
-- Database migrations
-- TypeScript for type safety
-- Comprehensive logging with Winston
+- 🔐 **Authentication & Authorization**
+  - JWT-based authentication with access and refresh tokens
+  - Role-Based Access Control (RBAC)
+  - Permission-based authorization
+  - Session management with Redis
+  - OAuth 2.0 integration (Google, GitHub)
 
-## Prerequisites
+- 🛡️ **Security Middleware**
+  - CSRF protection
+  - XSS protection
+  - SQL injection prevention
+  - Rate limiting (general, auth, password reset, registration)
+  - Input validation and sanitization
+  - Token blacklisting
 
-- Node.js 18+ 
-- PostgreSQL 12+
-- npm or yarn
+- 👤 **User Management**
+  - User registration and login
+  - Password hashing with bcrypt
+  - Password reset functionality
+  - Email verification
+  - Device fingerprinting
+
+- 📊 **Audit & Monitoring**
+  - Comprehensive audit logging
+  - Session tracking
+  - Security event monitoring
+  - Health check endpoints
+
+- 🌐 **Internationalization**
+  - Multi-language support
+  - Localized validation messages
+  - Translation helpers
 
 ## Installation
 
-1. Clone the repository:
-   ```bash
-   git clone <repository-url>
-   cd add-auth
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Set up environment variables:
-   ```bash
-   cp .env.example .env
-   ```
-   Edit `.env` with your database credentials and security keys.
-
-4. Set up PostgreSQL database:
-   ```bash
-   createdb add_auth
-   ```
-
-5. Run database migrations:
-   ```bash
-   npm run migrate
-   ```
-
-## Usage
-
-### Development
-
-Start the development server:
 ```bash
-npm run dev
+npm install @paulweezydesign/add-auth
 ```
 
-### Production
+### Peer Dependencies
 
-Build and start the production server:
+The following packages are required:
+
 ```bash
-npm run build
-npm start
+npm install express pg redis
 ```
 
-### Database Migrations
+## Quick Start
 
-Run pending migrations:
-```bash
-npm run migrate
+### Basic Setup
+
+```typescript
+import express from 'express';
+import { 
+  applySecurityMiddleware,
+  requireAuth,
+  UserModel,
+  db
+} from '@paulweezydesign/add-auth';
+
+const app = express();
+
+// Apply security middleware
+app.use(express.json());
+app.use(applySecurityMiddleware('production'));
+
+// Protected route example
+app.get('/api/profile', requireAuth, async (req, res) => {
+  const userId = req.session?.userId;
+  const user = await UserModel.findById(userId);
+  res.json({ user });
+});
+
+app.listen(3000, () => {
+  console.log('Server running on port 3000');
+});
 ```
 
-Check migration status:
-```bash
-ts-node src/database/migrate.ts status
+### Environment Configuration
+
+Create a `.env` file with the following variables:
+
+```env
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/dbname
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+DATABASE_NAME=your_db
+DATABASE_USER=your_user
+DATABASE_PASSWORD=your_password
+
+# JWT
+JWT_SECRET=your-super-secret-jwt-key
+JWT_ACCESS_EXPIRY=15m
+JWT_REFRESH_EXPIRY=7d
+
+# Session
+SESSION_SECRET=your-session-secret
+SESSION_EXPIRY=86400000
+
+# Redis (optional)
+REDIS_URL=redis://localhost:6379
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+# Email (for password reset)
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=your-email@example.com
+SMTP_PASSWORD=your-email-password
+EMAIL_FROM=noreply@example.com
+
+# OAuth (optional)
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GITHUB_CLIENT_ID=your-github-client-id
+GITHUB_CLIENT_SECRET=your-github-client-secret
+
+# Application
+NODE_ENV=production
+PORT=3000
+FRONTEND_URL=http://localhost:3000
 ```
 
-Rollback migrations:
-```bash
-npm run migrate:rollback
+## Usage Examples
+
+### User Authentication
+
+```typescript
+import { UserModel, AuthUtils } from '@paulweezydesign/add-auth';
+
+// Register a new user
+const user = await UserModel.create({
+  email: 'user@example.com',
+  username: 'johndoe',
+  password: 'SecurePassword123!'
+});
+
+// Login
+const loginUser = await UserModel.findByEmail('user@example.com');
+if (loginUser && await AuthUtils.verifyPassword('SecurePassword123!', loginUser.password_hash)) {
+  const tokens = await createAuthenticationTokens({
+    userId: loginUser.id,
+    email: loginUser.email,
+    roles: ['user']
+  });
+  console.log('Access Token:', tokens.accessToken);
+}
 ```
 
-## Database Schema
+### Role-Based Access Control
 
-### Users Table
-- `id` (UUID) - Primary key
-- `email` (VARCHAR) - Unique email address
-- `password_hash` (VARCHAR) - Bcrypt hash of password
-- `created_at` (TIMESTAMP) - Account creation time
-- `updated_at` (TIMESTAMP) - Last update time
-- `status` (ENUM) - Account status (active, inactive, suspended, deleted)
-- `email_verified` (BOOLEAN) - Email verification status
-- `last_login` (TIMESTAMP) - Last successful login
-- `failed_login_attempts` (INTEGER) - Failed login counter
-- `locked_until` (TIMESTAMP) - Account lock expiration
+```typescript
+import { requireRole, requirePermission, requireAuth } from '@paulweezydesign/add-auth';
 
-### Sessions Table
-- `id` (UUID) - Primary key
-- `user_id` (UUID) - Foreign key to users
-- `token` (VARCHAR) - Session token
-- `expires_at` (TIMESTAMP) - Session expiration
-- `created_at` (TIMESTAMP) - Session creation time
-- `ip_address` (INET) - Client IP address
-- `user_agent` (TEXT) - Client user agent
-- `is_active` (BOOLEAN) - Session active status
-- `last_accessed` (TIMESTAMP) - Last access time
+// Require specific role
+app.get('/admin/dashboard', requireAuth, requireRole('admin'), (req, res) => {
+  res.json({ message: 'Admin Dashboard' });
+});
 
-### Roles Table
-- `id` (UUID) - Primary key
-- `name` (VARCHAR) - Role name
-- `description` (TEXT) - Role description
-- `permissions` (JSONB) - Array of permissions
-- `created_at` (TIMESTAMP) - Role creation time
-- `updated_at` (TIMESTAMP) - Last update time
+// Require specific permission
+app.post('/posts/create', requireAuth, requirePermission('posts:create'), (req, res) => {
+  // Create post logic
+});
 
-### User Roles Table
-- `user_id` (UUID) - Foreign key to users
-- `role_id` (UUID) - Foreign key to roles
-- `assigned_at` (TIMESTAMP) - Assignment time
-- `assigned_by` (UUID) - Who assigned the role
+// Require any of multiple roles
+app.get('/moderation', requireAuth, requireRole(['admin', 'moderator']), (req, res) => {
+  res.json({ message: 'Moderation Panel' });
+});
+```
 
-### Audit Logs Table
-- `id` (UUID) - Primary key
-- `user_id` (UUID) - Foreign key to users
-- `action` (VARCHAR) - Action performed
-- `resource_type` (VARCHAR) - Type of resource
-- `resource_id` (UUID) - ID of affected resource
-- `timestamp` (TIMESTAMP) - Action timestamp
-- `ip_address` (INET) - Client IP address
-- `user_agent` (TEXT) - Client user agent
-- `details` (JSONB) - Additional details
-- `success` (BOOLEAN) - Success status
-- `error_message` (TEXT) - Error message if failed
+### Security Middleware Stacks
 
-## Security Features
+```typescript
+import { securityMiddleware } from '@paulweezydesign/add-auth';
 
-### Password Security
-- Bcrypt hashing with configurable rounds
-- Password complexity requirements
-- Account lockout after failed attempts
+// Use pre-configured security stacks
+app.post('/auth/login', securityMiddleware.auth, loginController);
+app.post('/auth/register', securityMiddleware.registration, registerController);
+app.post('/auth/forgot-password', securityMiddleware.passwordReset, forgotPasswordController);
+app.use('/admin', securityMiddleware.admin, adminRoutes);
+```
 
-### Session Security
-- JWT tokens with expiration
-- Session invalidation
-- IP address and user agent tracking
+### Custom Rate Limiting
 
-### Audit Trail
-- Comprehensive logging of all actions
-- Failed login attempt tracking
-- IP address monitoring
+```typescript
+import { createCustomRateLimiter } from '@paulweezydesign/add-auth';
 
-## Environment Variables
+// Create custom rate limiter
+const apiLimiter = createCustomRateLimiter({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // 100 requests per window
+  message: 'Too many requests from this IP'
+});
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string | - |
-| `DB_HOST` | Database host | localhost |
-| `DB_PORT` | Database port | 5432 |
-| `DB_NAME` | Database name | add_auth |
-| `DB_USER` | Database user | postgres |
-| `DB_PASSWORD` | Database password | password |
-| `PORT` | Server port | 3000 |
-| `NODE_ENV` | Environment | development |
-| `JWT_SECRET` | JWT signing secret | (required) |
-| `JWT_EXPIRES_IN` | JWT expiration time | 24h |
-| `BCRYPT_ROUNDS` | Bcrypt hash rounds | 12 |
-| `SESSION_TIMEOUT` | Session timeout (ms) | 86400000 |
-| `LOG_LEVEL` | Log level | info |
+app.use('/api/', apiLimiter);
+```
 
-## API Endpoints
+### Session Management
 
-### Health Check
-- `GET /health` - Health check endpoint
+```typescript
+import { SessionService, sessionMiddleware } from '@paulweezydesign/add-auth';
 
-### Authentication (Coming Soon)
-- `POST /api/auth/register` - User registration
-- `POST /api/auth/login` - User login
-- `POST /api/auth/logout` - User logout
-- `POST /api/auth/refresh` - Refresh token
+// Apply session middleware
+app.use(sessionMiddleware);
 
-### Users (Coming Soon)
-- `GET /api/users` - List users
-- `GET /api/users/:id` - Get user details
-- `PUT /api/users/:id` - Update user
-- `DELETE /api/users/:id` - Delete user
+// Get user sessions
+const sessions = await SessionService.getUserSessions(userId);
 
-### Roles (Coming Soon)
-- `GET /api/roles` - List roles
-- `POST /api/roles` - Create role
-- `PUT /api/roles/:id` - Update role
-- `DELETE /api/roles/:id` - Delete role
+// Revoke a session
+await SessionService.revokeSession(sessionId);
+
+// Revoke all user sessions
+await SessionService.revokeAllUserSessions(userId);
+```
+
+### Password Reset
+
+```typescript
+import { PasswordResetManager, emailService } from '@paulweezydesign/add-auth';
+
+// Request password reset
+app.post('/auth/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  const user = await UserModel.findByEmail(email);
+  
+  if (user) {
+    const resetToken = await PasswordResetManager.createResetToken(user.id);
+    await emailService.sendPasswordResetEmail(email, resetToken, user.username);
+  }
+  
+  res.json({ message: 'If email exists, reset link has been sent' });
+});
+
+// Reset password with token
+app.post('/auth/reset-password', async (req, res) => {
+  const { token, newPassword } = req.body;
+  await PasswordResetManager.resetPassword(token, newPassword);
+  res.json({ message: 'Password reset successful' });
+});
+```
+
+### Token Management
+
+```typescript
+import { 
+  generateAccessToken, 
+  validateAccessToken,
+  isTokenBlacklisted,
+  addToBlacklist 
+} from '@paulweezydesign/add-auth';
+
+// Generate token
+const accessToken = await generateAccessToken({ 
+  userId: user.id, 
+  email: user.email 
+});
+
+// Validate token
+const validation = await validateAccessToken(token);
+if (validation.valid) {
+  console.log('Token payload:', validation.payload);
+}
+
+// Blacklist a token (e.g., on logout)
+await addToBlacklist(token, user.id, 'User logout');
+
+// Check if token is blacklisted
+const isBlacklisted = await isTokenBlacklisted(token);
+```
+
+### Input Validation & Sanitization
+
+```typescript
+import { 
+  validate, 
+  validationSchemas,
+  sanitizeInput,
+  xssProtection 
+} from '@paulweezydesign/add-auth';
+
+// Use built-in validation schemas
+app.post('/register', 
+  validate(validationSchemas.registration),
+  registerController
+);
+
+// Apply XSS protection
+app.use(xssProtection());
+
+// Sanitize specific input
+app.use(sanitizeInput('body'));
+app.use(sanitizeInput('query'));
+```
+
+### Audit Logging
+
+```typescript
+import { AuditLogModel } from '@paulweezydesign/add-auth';
+
+// Create audit log
+await AuditLogModel.create({
+  user_id: userId,
+  action: 'user.login',
+  resource_type: 'authentication',
+  resource_id: sessionId,
+  ip_address: req.ip,
+  user_agent: req.headers['user-agent'],
+  details: {
+    success: true,
+    method: '2fa'
+  }
+});
+
+// Query audit logs
+const logs = await AuditLogModel.findByUser(userId, { limit: 50 });
+```
+
+## API Reference
+
+### Middleware
+
+- `requireAuth` - Require authentication
+- `optionalAuth` - Optional authentication
+- `requireRole(roles)` - Require specific role(s)
+- `requirePermission(permissions)` - Require specific permission(s)
+- `requireOwnership(field)` - Require resource ownership
+- `applySecurityMiddleware(env)` - Apply security stack based on environment
+- `sessionMiddleware` - Session management middleware
+- `rateLimiters` - Pre-configured rate limiters
+- `csrfProtection()` - CSRF protection middleware
+- `xssProtection()` - XSS protection middleware
+- `sqlInjectionPrevention()` - SQL injection prevention
+
+### Models
+
+- `UserModel` - User database operations
+- `RoleModel` - Role management
+- `SessionModel` - Session management
+- `AuditLogModel` - Audit logging
+
+### Utilities
+
+- `AuthUtils` - Authentication utilities
+- `generateAccessToken(payload)` - Generate JWT access token
+- `validateAccessToken(token)` - Validate access token
+- `createRefreshToken(payload)` - Create refresh token
+- `validateRefreshToken(token)` - Validate refresh token
+- `PermissionService` - Permission management service
+- `EmailService` - Email sending service
+- `FingerprintService` - Device fingerprinting
+- `logger` - Winston logger instance
+
+### Security
+
+- `PasswordResetManager` - Password reset functionality
+- `addToBlacklist(token, userId, reason)` - Blacklist a token
+- `isTokenBlacklisted(token)` - Check if token is blacklisted
+- `performLogout(userId, token)` - Complete logout process
+- `performSecurityRevocation(userId, reason)` - Revoke all user tokens
+
+## Database Setup
+
+The library uses PostgreSQL. Run migrations to set up the database schema:
+
+```typescript
+import { db } from '@paulweezydesign/add-auth';
+
+// Run migrations
+// See src/database/migrate.ts for migration details
+
+// Or manually create tables using the provided SQL schema
+```
+
+## Configuration Options
+
+### Security Middleware Configuration
+
+```typescript
+import { securityConfigs, applySecurityMiddleware } from '@paulweezydesign/add-auth';
+
+// Use environment-based presets
+app.use(applySecurityMiddleware('production')); // or 'development', 'testing'
+
+// Custom configuration
+const customConfig = {
+  csrf: {
+    saltLength: 32,
+    secretLength: 64,
+    tokenExpiry: 3600000 // 1 hour
+  },
+  xss: {
+    stripIgnoreTag: true,
+    css: false
+  },
+  sqlInjection: {
+    strict: true,
+    logAttempts: true
+  }
+};
+```
+
+## TypeScript Support
+
+This library is written in TypeScript and includes type definitions. All types are exported:
+
+```typescript
+import type { 
+  User, 
+  Role, 
+  JWTPayload, 
+  TokenValidationResult,
+  DeviceFingerprint,
+  AuditLog 
+} from '@paulweezydesign/add-auth';
+```
+
+## Error Handling
+
+```typescript
+import { 
+  globalErrorHandler, 
+  notFoundHandler,
+  asyncHandler 
+} from '@paulweezydesign/add-auth';
+
+// Wrap async route handlers
+app.get('/api/data', asyncHandler(async (req, res) => {
+  const data = await fetchData();
+  res.json(data);
+}));
+
+// Apply global error handler (should be last middleware)
+app.use(notFoundHandler);
+app.use(globalErrorHandler);
+```
+
+## Health Checks
+
+```typescript
+import { securityHealthCheck } from '@paulweezydesign/add-auth';
+
+app.get('/health', async (req, res) => {
+  const health = await securityHealthCheck();
+  res.json({
+    status: 'ok',
+    security: health
+  });
+});
+```
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
 MIT
+
+## Support
+
+For issues and questions, please open an issue on [GitHub](https://github.com/paulweezydesign/add-auth/issues).
+
+## Changelog
+
+### 1.0.0
+- Initial release
+- Complete authentication and authorization system
+- RBAC support
+- OAuth integration
+- Comprehensive security middleware
+- Session management
+- Audit logging
+- Role-Based Access Control (RBAC)
+- OAuth Integration (Google, GitHub)
+- Session Management with Redis
+- Password Recovery
+- JWT Authentication
+- Rate Limiting
+- Input Validation
+- Security Middleware
+- Audit Logging
+
+## 🚀 Quick Start
+
+### Running the Main Application
+
+```bash
+# Install dependencies
+npm install
+
+# Set up environment
+cp .env.example .env
+# Edit .env with your configuration
+
+# Run database migrations
+npm run migrate
+
+# Start development server
+npm run dev
+```
+
+## 📚 Examples & Learning
+
+**New to this authentication system?** Check out our comprehensive examples!
+
+We provide **5 complete, runnable example applications** demonstrating different authentication methods:
+
+### [View All Examples →](./examples/)
+
+| Example | Description | Port | Complexity |
+|---------|-------------|------|------------|
+| [**JWT Auth**](./examples/jwt-auth/) | Token-based authentication with access/refresh tokens | 3000 | ⭐ Beginner |
+| [**Session Auth**](./examples/session-auth/) | Cookie-based sessions with Redis storage | 3001 | ⭐⭐ Intermediate |
+| [**OAuth Social**](./examples/oauth-social/) | Google & GitHub social login integration | 3002 | ⭐⭐ Intermediate |
+| [**RBAC**](./examples/rbac/) | Role-based access control with permissions | 3003 | ⭐⭐⭐ Advanced |
+| [**Password Recovery**](./examples/password-recovery/) | Forgot/reset password with email tokens | 3004 | ⭐⭐ Intermediate |
+
+Each example includes:
+- ✅ Complete, working source code
+- ✅ Detailed documentation
+- ✅ API endpoint examples (cURL commands)
+- ✅ Environment configuration templates
+- ✅ Step-by-step setup instructions
+
+**[Quick Start Guide →](./examples/QUICKSTART.md)** | **[Browse Examples →](./examples/)**
+

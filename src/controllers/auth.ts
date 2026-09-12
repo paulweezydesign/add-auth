@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import { UserModel } from '../models/User';
-import { SessionModel } from '../models/Session';
 import { AuthUtils } from '../utils/auth';
 import { createAuthenticationTokens, refreshAccessToken } from '../utils/refreshToken';
 import { performLogout } from '../utils/tokenBlacklist';
@@ -11,6 +10,7 @@ import { logger } from '../utils/logger';
 import { defaultPasswordSecurity } from '../security/password-security';
 import { SessionService } from '../services/sessionService';
 import { FingerprintService } from '../utils/fingerprint';
+import { RoleModel } from '../models/Role';
 
 /**
  * Register a new user
@@ -179,11 +179,14 @@ export async function login(req: Request, res: Response): Promise<void> {
       fingerprint: fingerprint
     }, rememberMe);
 
+    const roles = await RoleModel.getUserRoles(user.id);
+    const roleNames = roles.map(role => role.name);
+
     // Generate JWT tokens
     const userPayload: UserPayload = {
       id: user.id,
       email: user.email,
-      roles: [] // TODO: Get actual roles from database
+      roles: roleNames
     };
 
     const tokens = await createAuthenticationTokens(userPayload, {
@@ -231,6 +234,88 @@ export async function login(req: Request, res: Response): Promise<void> {
     res.status(500).json({
       error: 'Login failed',
       message: 'An error occurred during login'
+    });
+  }
+}
+
+/**
+ * Change user password
+ */
+export async function changePassword(req: Request, res: Response): Promise<void> {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      res.status(401).json({
+        error: 'Authentication required',
+        message: 'User not authenticated'
+      });
+      return;
+    }
+
+    const user = await UserModel.findById(userId, true);
+    if (!user) {
+      res.status(404).json({
+        error: 'User not found',
+        message: 'User account not found'
+      });
+      return;
+    }
+
+    const currentValid = await AuthUtils.verifyPassword(
+      currentPassword,
+      (user as any).password_hash
+    );
+
+    if (!currentValid) {
+      res.status(400).json({
+        error: 'Invalid credentials',
+        message: 'Current password is incorrect'
+      });
+      return;
+    }
+
+    const passwordValidation = defaultPasswordSecurity.validatePassword(newPassword);
+    if (!passwordValidation.isValid) {
+      res.status(400).json({
+        error: 'Password validation failed',
+        message: 'New password does not meet security requirements',
+        details: passwordValidation.errors
+      });
+      return;
+    }
+
+    const isSamePassword = await AuthUtils.verifyPassword(
+      newPassword,
+      (user as any).password_hash
+    );
+
+    if (isSamePassword) {
+      res.status(400).json({
+        error: 'Invalid password',
+        message: 'New password must be different from the current password'
+      });
+      return;
+    }
+
+    const hashedPassword = await AuthUtils.hashPassword(newPassword);
+    await UserModel.updatePassword(userId, hashedPassword);
+
+    await SessionService.destroyUserSessions(userId);
+    res.clearCookie('sessionId');
+
+    logger.info('User password changed successfully', { userId });
+
+    res.json({
+      success: true,
+      message: 'Password updated successfully. Please log in again.'
+    });
+  } catch (error: any) {
+    logger.error('Password change failed:', error);
+    res.status(500).json({
+      error: 'Password change failed',
+      message: 'An error occurred while changing the password'
     });
   }
 }

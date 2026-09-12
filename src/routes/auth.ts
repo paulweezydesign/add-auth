@@ -23,7 +23,8 @@ import {
   getUserSessions,
   revokeSession,
   revokeAllOtherSessions,
-  extendSession
+  extendSession,
+  changePassword
 } from '../controllers/auth';
 
 const router = Router();
@@ -129,13 +130,8 @@ router.post(
   validateBody(validationSchemas.passwordChange),
   // CSRF protection for state-changing operations
   csrfProtection(),
-  // Controller would go here - TODO: implement password change
-  async (req, res) => {
-    res.json({ 
-      success: true, 
-      message: 'Password change endpoint - implementation pending' 
-    });
-  }
+  // Controller implementation
+  changePassword
 );
 
 /**

@@ -23,7 +23,7 @@ export async function generateAccessToken(payload: UserPayload): Promise<string>
 
     return jwt.sign(jwtPayload as any, appConfig.security.jwtSecret, {
       expiresIn: appConfig.security.jwtExpiresIn,
-    });
+    } as jwt.SignOptions);
   } catch (error) {
     logger.error('Error generating access token:', error);
     throw new JWTError('Failed to generate access token', 'TOKEN_GENERATION_FAILED', 500);
@@ -42,7 +42,7 @@ export async function generateRefreshToken(payload: UserPayload): Promise<string
 
     return jwt.sign(jwtPayload as any, appConfig.security.jwtSecret, {
       expiresIn: appConfig.security.jwtRefreshExpiresIn,
-    });
+    } as jwt.SignOptions);
   } catch (error) {
     logger.error('Error generating refresh token:', error);
     throw new JWTError('Failed to generate refresh token', 'REFRESH_TOKEN_GENERATION_FAILED', 500);
